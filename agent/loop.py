@@ -5,7 +5,9 @@
   2. token 预算（max_budget_tokens）
   3. 同一调用连续 3 次判定为兜圈子，直接叫停
 外加用户中断（Interrupted），四条出口全部以 stopped/error 事件收尾。
-v1.1 起：system prompt 里常驻技能目录，正文靠 use_skill 按需加载。
+
+v1.1：system prompt 里常驻技能目录，正文靠 use_skill 按需加载。
+v1.2：AGENTS.md 两层注入 + Pre/Post hook 硬约束 + reviewer 子 agent。
 """
 from __future__ import annotations
 
@@ -16,8 +18,11 @@ import time
 from pathlib import Path
 from typing import Iterator
 
+from .agents_md import load_agents_md, system_block
+from .hooks import HookEngine
 from .providers import SYSTEM_PROMPT, Provider
 from .skills import UseSkillTool, catalog_text, load_skills
+from .subagents import ReviewerTool
 from .tools import Interrupted, Tool, ToolContext
 from .types import Event, Message, Observation, ToolCall
 
@@ -25,7 +30,7 @@ REPO = Path(__file__).resolve().parent.parent
 
 
 def _flag(name: str, default: bool = True) -> bool:
-    """环境开关：ENABLE_SKILLS=0 关掉对应能力。"""
+    """环境开关：ENABLE_SKILLS=0 / ENABLE_HOOKS=0 关掉对应能力。"""
     return os.environ.get(name, "1" if default else "0") not in ("0", "false", "False")
 
 
@@ -37,6 +42,8 @@ class AgentLoop:
     def __init__(self, provider: Provider, tools: dict[str, Tool], workspace: Path,
                  max_steps: int = 12, max_budget_tokens: int = 1_000_000,
                  enable_skills: bool | None = None,
+                 enable_hooks: bool | None = None,
+                 enable_reviewer: bool | None = None,
                  skills_dir: Path | None = None,
                  system_prompt: str | None = None):
         self.provider = provider
@@ -44,15 +51,27 @@ class AgentLoop:
         self.max_steps = max_steps
         self.max_budget_tokens = max_budget_tokens
         self.enable_skills = _flag("ENABLE_SKILLS") if enable_skills is None else enable_skills
+        self.enable_hooks = _flag("ENABLE_HOOKS") if enable_hooks is None else enable_hooks
+        self.enable_reviewer = _flag("ENABLE_SUBAGENT") if enable_reviewer is None else enable_reviewer
 
         self.skills = load_skills(skills_dir or (REPO / "skills")) if self.enable_skills else []
         self.tools = dict(tools)
         if self.enable_skills:
             self.tools["use_skill"] = UseSkillTool(self.skills)
+        self.reviewer: ReviewerTool | None = None
+        if self.enable_reviewer:
+            self.reviewer = ReviewerTool(provider, self.workspace)
+            self.tools["spawn_reviewer"] = self.reviewer
+
+        self.hooks = HookEngine(self.workspace) if self.enable_hooks else None
+        self.agents_md = load_agents_md(self.workspace)
         self.base_system_prompt = system_prompt or SYSTEM_PROMPT
 
     def build_system_prompt(self) -> str:
         parts = [self.base_system_prompt]
+        block = system_block(self.agents_md)
+        if block:
+            parts.append(block)
         if self.enable_skills and self.skills:
             parts.append(catalog_text(self.skills))
         return "\n\n".join(parts)
@@ -140,10 +159,22 @@ class AgentLoop:
             if not isinstance(args, dict):
                 raise ValueError("arguments 不是 JSON 对象")
 
+            if self.hooks:                      # PreToolUse：硬约束，拒绝并给替代方案
+                denied = self.hooks.pre(call.name, args)
+                if denied:
+                    return Observation(call.id, call.name, False,
+                                       output=f"被 hook 拦下：{denied['reason']}",
+                                       error="denied by hook")
+
             result = tool.run(args, ctx)
+            output = result.get("output", "")
+            if self.hooks:                      # PostToolUse：写完自动跑测试，只回三行
+                note = self.hooks.post(call.name, args)
+                if note:
+                    output = f"{output}\n\n{note}"
             elapsed = int((time.time() - started) * 1000)
             return Observation(call.id, call.name, bool(result.get("ok")),
-                               output=result.get("output", ""),
+                               output=output,
                                blocks=result.get("blocks", []),
                                elapsed_ms=elapsed)
         except Interrupted:
