@@ -9,7 +9,7 @@ from __future__ import annotations
 import os
 import tempfile
 
-from .base import Tool, ToolContext
+from .base import guard, Tool, ToolContext
 
 
 class WriteTool(Tool):
@@ -28,6 +28,7 @@ class WriteTool(Tool):
         "required": ["path", "content"],
     }
 
+    @guard
     def run(self, args: dict, ctx: ToolContext) -> dict:
         ctx.check_interrupt()
         path = ctx.resolve_in_workspace(str(args.get("path", "")))

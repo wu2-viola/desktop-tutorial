@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import threading
 from abc import ABC, abstractmethod
+from functools import wraps
 from pathlib import Path
 
 
@@ -47,3 +48,18 @@ class Tool(ABC):
         return {"type": "function",
                 "function": {"name": self.name, "description": self.description,
                              "parameters": self.schema}}
+
+
+def guard(fn):
+    """把「路径越出工作区」这类可预期错误变成失败观察，而不是异常。"""
+
+    @wraps(fn)
+    def wrapper(self, args: dict, ctx: ToolContext) -> dict:
+        try:
+            return fn(self, args, ctx)
+        except Interrupted:
+            raise
+        except ValueError as e:
+            return {"ok": False, "output": str(e)}
+
+    return wrapper

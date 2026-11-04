@@ -9,7 +9,7 @@ from __future__ import annotations
 import base64
 import mimetypes
 
-from .base import Tool, ToolContext
+from .base import guard, Tool, ToolContext
 
 IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp"}
 MAX_BYTES = 5 * 1024 * 1024
@@ -32,6 +32,7 @@ class ReadTool(Tool):
         "required": ["path"],
     }
 
+    @guard
     def run(self, args: dict, ctx: ToolContext) -> dict:
         ctx.check_interrupt()
         path = ctx.resolve_in_workspace(str(args.get("path", "")))

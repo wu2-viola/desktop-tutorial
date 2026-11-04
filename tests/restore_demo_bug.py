@@ -15,6 +15,22 @@ def mean(nums):
     for n in nums:
         total += n
     return total / len(nums)
+
+
+def variance(nums):
+    m = mean(nums)
+    return sum((x - m) ** 2 for x in nums) / len(nums)
+
+
+def median(nums):
+    s = sorted(nums)
+    n = len(s)
+    if n == 0:
+        raise ValueError("median() of empty sequence")
+    mid = n // 2
+    if n % 2:
+        return s[mid]
+    return (s[mid - 1] + s[mid]) / 2
 '''
 
 target = Path(sys.argv[1] if len(sys.argv) > 1

@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import difflib
 
-from .base import Tool, ToolContext
+from .base import guard, Tool, ToolContext
 
 
 def _atomic_write(path, content: str) -> None:
@@ -41,6 +41,7 @@ class EditTool(Tool):
         "required": ["path", "old", "new"],
     }
 
+    @guard
     def run(self, args: dict, ctx: ToolContext) -> dict:
         ctx.check_interrupt()
         path = ctx.resolve_in_workspace(str(args.get("path", "")))

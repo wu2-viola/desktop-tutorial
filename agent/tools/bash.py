@@ -9,7 +9,7 @@ import subprocess
 import tempfile
 import time
 
-from .base import Tool, ToolContext
+from .base import guard, Tool, ToolContext
 
 MAX_CHARS = 8000
 
@@ -38,6 +38,7 @@ class BashTool(Tool):
         "required": ["command"],
     }
 
+    @guard
     def run(self, args: dict, ctx: ToolContext) -> dict:
         ctx.check_interrupt()
         command = str(args.get("command", "")).strip()
