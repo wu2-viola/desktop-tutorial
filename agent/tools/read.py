@@ -42,6 +42,7 @@ class ReadTool(Tool):
             return {"ok": False, "output": f"这是一个目录，请用 bash ls 或读目录下的文件：{path}"}
 
         raw = path.read_bytes()
+        ctx.read_paths.add(str(path))
         if path.suffix.lower() in IMAGE_EXTS:
             if len(raw) > MAX_BYTES:
                 return {"ok": False, "output": f"图片超过 5MB，拒绝读取：{path}"}
@@ -60,6 +61,7 @@ class ReadTool(Tool):
         total = len(lines)
         if offset > total:
             return {"ok": False, "output": f"offset={offset} 超出文件行数（共 {total} 行）"}
+        ctx.read_paths.add(str(path))
 
         chunk = lines[offset - 1: offset - 1 + limit]
         numbered = "\n".join(f"{offset + i:>6}\t{line}" for i, line in enumerate(chunk))

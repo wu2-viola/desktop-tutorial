@@ -16,11 +16,12 @@ class Interrupted(Exception):
 
 
 class ToolContext:
-    """一次运行共享的上下文：工作区根目录 + 中断信号。"""
+    """一次运行共享的上下文：工作区根目录 + 中断信号 + 已读文件记录。"""
 
     def __init__(self, workspace: Path, interrupt: threading.Event | None = None):
         self.workspace = workspace.resolve()
         self.interrupt = interrupt or threading.Event()
+        self.read_paths: set[str] = set()   # edit 前必须 read 过同一文件
 
     def check_interrupt(self) -> None:
         if self.interrupt.is_set():

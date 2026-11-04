@@ -74,8 +74,23 @@ def test_write_rejects_escape(ctx):
 
 
 # ---------- edit ----------
+def _read_first(ctx, tmp_path, name):
+    """演示「edit 前必须 read」的正规流程。"""
+    r = BUILTIN_TOOLS["read"].run({"path": name}, ctx)
+    assert r["ok"]
+    return r
+
+
+def test_edit_requires_prior_read(ctx, tmp_path):
+    lines(tmp_path, "b.py", "x = 1\n")
+    r = BUILTIN_TOOLS["edit"].run({"path": "b.py", "old": "x = 1", "new": "x = 2"}, ctx)
+    assert not r["ok"] and "read" in r["output"]          # 没读过就拒绝
+    assert (tmp_path / "b.py").read_text(encoding="utf-8") == "x = 1\n"  # 一个字没动
+
+
 def test_edit_unique_replace_with_diff(ctx, tmp_path):
     lines(tmp_path, "c.py", "def f():\n    return 1\n")
+    _read_first(ctx, tmp_path, "c.py")
     r = BUILTIN_TOOLS["edit"].run({"path": "c.py", "old": "return 1", "new": "return 2"}, ctx)
     assert r["ok"] and "return 2" in (tmp_path / "c.py").read_text(encoding="utf-8")
     assert "+" in r["output"]          # 带最小 diff
@@ -83,6 +98,7 @@ def test_edit_unique_replace_with_diff(ctx, tmp_path):
 
 def test_edit_not_unique_refuses_and_lists_lines(ctx, tmp_path):
     lines(tmp_path, "d.txt", "same\nmid\nsame\n")
+    _read_first(ctx, tmp_path, "d.txt")
     r = BUILTIN_TOOLS["edit"].run({"path": "d.txt", "old": "same", "new": "x"}, ctx)
     assert not r["ok"] and "2 次" in r["output"] and "[1, 3]" in r["output"]
     assert (tmp_path / "d.txt").read_text(encoding="utf-8") == "same\nmid\nsame\n"  # 一个字都没动
@@ -90,12 +106,14 @@ def test_edit_not_unique_refuses_and_lists_lines(ctx, tmp_path):
 
 def test_edit_missing_string(ctx, tmp_path):
     lines(tmp_path, "e.txt", "hello")
+    _read_first(ctx, tmp_path, "e.txt")
     r = BUILTIN_TOOLS["edit"].run({"path": "e.txt", "old": "world", "new": "x"}, ctx)
     assert not r["ok"] and "0 次" in r["output"]
 
 
 def test_edit_replace_all_only_with_flag(ctx, tmp_path):
     lines(tmp_path, "g.txt", "a b a")
+    _read_first(ctx, tmp_path, "g.txt")
     assert not BUILTIN_TOOLS["edit"].run({"path": "g.txt", "old": "a", "new": "z"}, ctx)["ok"]
     r = BUILTIN_TOOLS["edit"].run({"path": "g.txt", "old": "a", "new": "z", "replace_all": True}, ctx)
     assert r["ok"] and (tmp_path / "g.txt").read_text(encoding="utf-8") == "z b z"

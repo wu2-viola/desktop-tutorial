@@ -51,6 +51,10 @@ class EditTool(Tool):
         new = str(args.get("new", ""))
         if not old:
             return {"ok": False, "output": "old 为空 —— 空替换没有意义，请用 write 新建文件。"}
+        if str(path) not in ctx.read_paths:
+            return {"ok": False,
+                    "output": "本次会话还没 read 过这个文件 —— 先 read 看原文再 edit，"
+                              "拒绝基于臆测的修改。"}
 
         text = path.read_text(encoding="utf-8", errors="replace")
         count = text.count(old)
