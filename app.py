@@ -60,6 +60,16 @@ def _prepare_workspace() -> Path:
         for f in src.iterdir():
             if f.is_file() and not (home_ws / f.name).exists():
                 shutil.copy(f, home_ws / f.name)
+    # 项目层 AGENTS.md 跟着工作区走，保证「从工作区往上找」能找到它
+    agents = ROOT / "AGENTS.md"
+    if agents.exists() and not (home_ws / "AGENTS.md").exists():
+        shutil.copy(agents, home_ws / "AGENTS.md")
+    # 全局层首次运行时落一份，换台机器也是两层
+    global_md = Path.home() / ".desktop-tutorial" / "AGENTS.md"
+    seed = ROOT / "docs" / "agents-global.md"
+    if seed.exists() and not global_md.exists():
+        global_md.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy(seed, global_md)
     return home_ws
 
 

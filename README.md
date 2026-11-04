@@ -27,7 +27,26 @@ Desktop Agent 是一个基于 Python、pywebview 和 DeepSeek 模型接口开发
 | `edit` | 精确字符串替换，old 不唯一时拒绝并列出行号，返回最小 diff |
 | `bash` | 在工作区执行命令，返回 stdout/stderr/exit_code，超时杀进程树 |
 
-### 2.4 MCP 工具调用
+### 2.4 技能系统（渐进披露）
+
+`skills/` 下每个技能一个文件夹，`SKILL.md` 的 YAML 头写 `name` + `description`（含触发语）。
+
+- 启动时**只注入目录**（名字 + 一句话描述），正文不进上下文
+- 模型判断命中后调 `use_skill(name)`，正文才注入
+- 三种形态都有实例：纯提示词（`run-tests`）、带脚本（`review-diff` + `scripts/collect_diff.py`）、
+  走 MCP（`fetch-issue` + `mcp__demo__issue_get`）
+- 目录 181 token，全文 1407 token，比值 7.8（`skill_report.json`）
+
+### 2.5 定制层
+
+- **AGENTS.md 两层注入**：全局（`~/.desktop-tutorial/AGENTS.md`）+ 项目（工作区往上找最近一份），
+  内容是「地图」不是文档：路径→职责、命令→怎么跑、坑→别踩
+- **三个 hook（代码级）**：写 `.env`/`*.pem`/`*.key` 拒绝；`rm -rf`、`git push --force`、
+  `git reset --hard` 拒绝并给替代方案；write/edit 之后自动跑测试，只回注三行失败摘要
+- **reviewer 子 agent**：只读工具 + 五条固定清单，只回最后一条结论
+  （实测 `subagent_tokens=329`，主上下文只增加 56）
+
+### 2.6 MCP 工具调用
 
 已实现真实 MCP 客户端（stdio JSON-RPC）：自动启动 `mcp.json` 中配置的 server，
 发现其工具并以 `mcp__server__tool` 命名合并进注册表。仓库自带一个最小
@@ -43,6 +62,8 @@ MCP server（`workspace_stats` / `note_add`）作为集成示例。
 5. **中断**：工具执行与模型调用均可被用户中断。
 6. **密钥保护**：API Key 只保存在用户目录（`~/.desktop-tutorial/config.json`），
    任何接口只返回掩码；`.gitignore` 排除 `.env`、`dist` 等敏感内容。
+7. **hook 兜底**：即使模型被提示词说动，PreToolUse 也会在代码层拒绝写密钥文件与破坏性命令。
+8. **写完就验**：PostToolUse 在每次 write/edit 后自动跑测试，红了只回三行，逼模型面对证据。
 
 ## 4. 环境要求
 
@@ -90,7 +111,28 @@ python -m pytest tests -q
 共 45 项断言，覆盖文件读写、edit 唯一性检查、bash 超时、循环护栏（步数/预算/兜圈子/中断）、
 MCP 协议交互、配置层密钥不泄露及 server 接口行为。每次 push 由 GitHub Actions 自动执行。
 
-## 9. 打包
+## 9. 验收命令（作业：数字必须由程序打印）
+
+```bash
+python -m app.inspect skills --out skill_report.json
+python -m app.inspect custom --out custom_report.json
+```
+
+- `skill_report.json`：技能清单、目录/全文 token、`disclosure_ratio`、8 条触发试验、误触发数
+- `custom_report.json`：AGENTS.md 层数与字节、被 hook 拒绝的尝试、自动测试红绿统计、
+  reviewer 的问题数与上下文增量
+
+## 10. 能力开关
+
+| 环境变量 | 作用 | 关掉后的现象 |
+|---|---|---|
+| `ENABLE_SKILLS=0` | 不加载技能 | 工具表少 `use_skill`，system prompt 里没有技能目录 |
+| `ENABLE_HOOKS=0` | 不装 hook | 不再拦 `.env`/`rm -rf`，写完也不自动跑测试 |
+| `ENABLE_SUBAGENT=0` | 不注册 reviewer | 工具表少 `spawn_reviewer` |
+
+界面上也有「技能 / 钩子」两个勾选框，可以直接对比开关前后的工具调用轮数。
+
+## 11. 打包
 
 ```bash
 pyinstaller --noconfirm --onefile --windowed --name DesktopAgent ^
@@ -99,32 +141,38 @@ pyinstaller --noconfirm --onefile --windowed --name DesktopAgent ^
 
 产出 `dist/DesktopAgent.exe`，双击出窗口。详细步骤与踩坑见 [docs/build.md](docs/build.md)。
 
-## 10. 项目目录结构
+## 12. 项目目录结构
 
 ```text
 desktop-tutorial/
 ├── app.py              # pywebview 桌面应用入口
 ├── cli.py              # 命令行入口（与桌面共用同一智能体循环）
-├── agent/              # 智能体循环、四个工具、配置层、模型适配层
+├── AGENTS.md           # 项目地图（注入 system prompt 的项目层）
+├── report.md           # 报告：技能 / 定制 / 取舍
+├── agent/              # 循环、四个工具、技能系统、hooks、子 agent、验收命令
+├── app/                # 验收命令兼容入口（python -m app.inspect）
+├── skills/             # 技能目录：run-tests / review-diff / fetch-issue
 ├── server/             # FastAPI 后端（SSE 事件流）
-├── ui/                 # 三栏界面
-├── mcp/                # MCP 客户端与示例 server
+├── ui/                 # 三栏界面（含技能 / 钩子开关）
+├── mcp/                # MCP 客户端与示例 server（含 issue 工具）
 ├── workspace/          # 演示工作区（stats.py 故意留了一个 bug）
-├── tests/              # 自动化测试（45 项）
-├── report.md           # 项目报告（架构 / 打包 / 取舍 / 再加一个工具）
-├── docs/               # 运行记录（trace.md / demo-run.md）与打包说明（build.md）
+├── tests/              # 自动化测试（82 项）
+├── docs/               # 运行记录 / 打包说明 / 全局 AGENTS.md / 样例 diff
+├── skill_report.json   # 技能验收报告（程序打印）
+├── custom_report.json  # 定制层验收报告（程序打印）
 └── mcp.json            # MCP server 配置
 ```
 
-## 11. 项目当前状态与后续改进
+## 13. 项目当前状态与后续改进
 
-当前版本已实现桌面交互界面、DeepSeek 流式对话、四个受限本地工具、真实 MCP
-集成、循环护栏、自动化测试与 Windows 独立安装包。
+- **v1.0**：桌面窗口、四工具、MCP、安装包
+- **v1.1**：技能系统（渐进披露 + 三种形态 + 触发试验）
+- **v1.2**：定制层（AGENTS.md 两层、三个 hook、reviewer 子 agent、界面开关）
 
-后续可完善：上下文压缩（长会话 token 增长）、多会话支持、edit 确认弹窗、
-更多模型的适配。
+未做：增量 C（daemon：定时 / 事件触发、崩溃续跑、完成通知）。下一步先做
+checkpoint/resume —— 每轮把 messages 落盘，重启用 `--resume` 续跑，这是「一直在线」的最小闭环。
 
-## 12. 课程项目说明
+## 14. 课程项目说明
 
 本项目用于展示桌面智能体的基础架构设计、模型接口接入、本地工具封装、
 MCP 协议集成、工具调用安全控制和自动化测试等内容。
