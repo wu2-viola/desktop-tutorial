@@ -1,0 +1,14 @@
+[project]
+name = "desktop-tutorial"
+version = "1.0.0"
+description = "桌面智能体：pywebview 窗口 + 四工具循环 + MCP，课程大作业"
+requires-python = ">=3.10"
+dependencies = [
+    "fastapi>=0.110,<1",
+    "uvicorn>=0.29,<1",
+    "openai>=1.30,<2",
+    "pywebview>=5.0,<6",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
