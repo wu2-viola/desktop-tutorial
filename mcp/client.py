@@ -27,8 +27,13 @@ class MCPClient:
 
     def __init__(self, name: str, command: str, args: list[str], cwd: Path):
         self.name = name
-        if command in ("python", "python3"):   # 打包后系统里未必有 python 命令
-            command = sys.executable
+        if command in ("python", "python3"):
+            if getattr(sys, "frozen", False):
+                # 打包后没有 python 命令：内置 demo server 变成 exe 自己的一个模式
+                command = sys.executable
+                args = ["--mcp-server"]
+            else:
+                command = sys.executable
         self.proc = subprocess.Popen(
             [command, *args], cwd=str(cwd),
             stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
@@ -150,9 +155,10 @@ def load_mcp_tools(mcp_json: Path, workspace: Path) -> tuple[dict[str, Tool], li
     for name, cfg in conf.get("mcpServers", {}).items():
         entry = {"server": name, "ok": False, "error": None, "tools": []}
         try:
-            client = MCPClient(name, cfg["command"], cfg.get("args", []),
-                               cfg.get("cwd") and (mcp_json.parent / cfg["cwd"]).resolve()
-                               or workspace)
+            cwd_cfg = str(cfg.get("cwd") or "").strip()
+            cwd = workspace if cwd_cfg in ("", ".") \
+                else (mcp_json.parent / cwd_cfg).resolve()
+            client = MCPClient(name, cfg["command"], cfg.get("args", []), cwd)
             client.initialize()
             for info in client.list_tools():
                 tools[f"{MCP_PREFIX}{name}__{info['name']}"] = MCPTool(name, info, client)
