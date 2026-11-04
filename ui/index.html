@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Desktop Agent — 桌面智能体</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="layout">
+  <!-- 左：资源管理器 -->
+  <aside id="left">
+    <div class="col-head">资源管理器</div>
+    <div class="col-path" id="tree-path">workspace/</div>
+    <ul id="tree" class="tree"></ul>
+    <div class="left-foot">
+      <div id="mcp-badge" class="badge mcp-off" title="MCP server 状态">MCP · 未加载</div>
+      <div id="provider-badge" class="badge">模型 · 未配置</div>
+    </div>
+  </aside>
+
+  <!-- 中：代码查看 -->
+  <main id="middle">
+    <div class="col-head" id="file-title">未打开文件</div>
+    <pre id="file-view" class="file-view">从左侧选择一个文件</pre>
+  </main>
+
+  <!-- 右：对话与工具调用 -->
+  <section id="right">
+    <div class="col-head">对话 · 工具调用
+      <button id="btn-settings" class="ghost-btn" title="设置 API Key">⚙ 设置</button>
+    </div>
+    <div id="stream"></div>
+    <div id="composer">
+      <input id="task-input" type="text" placeholder="说点什么…（例如：mean 对空列表处理有问题，改掉）" autocomplete="off">
+      <button id="btn-send">发送</button>
+      <button id="btn-stop" class="danger" disabled>■ 停止</button>
+    </div>
+  </section>
+</div>
+
+<!-- 设置弹窗 -->
+<div id="settings-modal" class="modal hidden">
+  <div class="modal-card">
+    <h3>设置</h3>
+    <label>API Key（DeepSeek，存到用户目录，不入仓库）</label>
+    <input id="cfg-key" type="password" placeholder="sk-...">
+    <label>Base URL</label>
+    <input id="cfg-url" type="text">
+    <label>模型</label>
+    <input id="cfg-model" type="text">
+    <div class="modal-foot">
+      <button id="cfg-cancel" class="ghost-btn">取消</button>
+      <button id="cfg-save">保存</button>
+    </div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
