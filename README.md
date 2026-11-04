@@ -110,7 +110,8 @@ desktop-tutorial/
 ├── mcp/                # MCP 客户端与示例 server
 ├── workspace/          # 演示工作区（stats.py 故意留了一个 bug）
 ├── tests/              # 自动化测试（45 项）
-├── docs/               # 运行记录 / 打包说明 / 项目报告
+├── report.md           # 项目报告（架构 / 打包 / 取舍 / 再加一个工具）
+├── docs/               # 运行记录（trace.md / demo-run.md）与打包说明（build.md）
 └── mcp.json            # MCP server 配置
 ```
 
