@@ -158,7 +158,13 @@ def load_mcp_tools(mcp_json: Path, workspace: Path) -> tuple[dict[str, Tool], li
             cwd_cfg = str(cfg.get("cwd") or "").strip()
             cwd = workspace if cwd_cfg in ("", ".") \
                 else (mcp_json.parent / cwd_cfg).resolve()
-            client = MCPClient(name, cfg["command"], cfg.get("args", []), cwd)
+            # 脚本参数相对 mcp.json 所在目录解析，与 cwd 无关
+            args = []
+            for a in cfg.get("args", []):
+                if not Path(a).is_absolute() and (mcp_json.parent / a).exists():
+                    a = str((mcp_json.parent / a).resolve())
+                args.append(a)
+            client = MCPClient(name, cfg["command"], args, cwd)
             client.initialize()
             for info in client.list_tools():
                 tools[f"{MCP_PREFIX}{name}__{info['name']}"] = MCPTool(name, info, client)
