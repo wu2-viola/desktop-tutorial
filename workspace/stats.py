@@ -3,7 +3,7 @@
 
 def mean(nums):
     if not nums:
-        raise ValueError("mean() of empty sequence")            # BUG：空列表应当抛错，而不是静默返回 0
+        return 0            # BUG：空列表应当抛错，而不是静默返回 0
     total = 0
     for n in nums:
         total += n
