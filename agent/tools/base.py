@@ -21,7 +21,8 @@ class ToolContext:
     def __init__(self, workspace: Path, interrupt: threading.Event | None = None):
         self.workspace = workspace.resolve()
         self.interrupt = interrupt or threading.Event()
-        self.read_paths: set[str] = set()   # edit 前必须 read 过同一文件
+        self.read_paths: set[str] = set()        # edit 前必须 read 过同一文件
+        self.loaded_skills: set[str] = set()     # 渐进披露：记录已注入正文的技能
 
     def check_interrupt(self) -> None:
         if self.interrupt.is_set():
