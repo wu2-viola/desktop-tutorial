@@ -1,0 +1,73 @@
+{
+  "skills": [
+    {
+      "name": "fetch-issue",
+      "has_scripts": false,
+      "uses_mcp": true
+    },
+    {
+      "name": "review-diff",
+      "has_scripts": true,
+      "uses_mcp": false
+    },
+    {
+      "name": "run-tests",
+      "has_scripts": false,
+      "uses_mcp": false
+    }
+  ],
+  "catalog_tokens": 181,
+  "full_tokens": 1407,
+  "disclosure_ratio": 7.8,
+  "trials": [
+    {
+      "query": "帮我跑一下测试",
+      "expected": "run-tests",
+      "hit": "run-tests",
+      "ok": true
+    },
+    {
+      "query": "测试挂了看看为什么",
+      "expected": "run-tests",
+      "hit": "run-tests",
+      "ok": true
+    },
+    {
+      "query": "把这段 diff 审一遍",
+      "expected": "review-diff",
+      "hit": "review-diff",
+      "ok": true
+    },
+    {
+      "query": "看看改了什么",
+      "expected": "review-diff",
+      "hit": "review-diff",
+      "ok": true
+    },
+    {
+      "query": "拉个 issue 看看需求",
+      "expected": "fetch-issue",
+      "hit": "fetch-issue",
+      "ok": true
+    },
+    {
+      "query": "issue 里怎么说的",
+      "expected": "fetch-issue",
+      "hit": "fetch-issue",
+      "ok": true
+    },
+    {
+      "query": "今天天气怎么样",
+      "expected": null,
+      "hit": null,
+      "ok": true
+    },
+    {
+      "query": "帮我写一首关于秋天的诗",
+      "expected": null,
+      "hit": null,
+      "ok": true
+    }
+  ],
+  "false_positive": 0
+}
