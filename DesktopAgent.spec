@@ -5,7 +5,7 @@ a = Analysis(
     ['app.py'],
     pathex=[],
     binaries=[],
-    datas=[('ui', 'ui'), ('workspace', 'workspace'), ('mcp.json', '.')],
+    datas=[('ui', 'ui'), ('workspace', 'workspace'), ('mcp.json', '.'), ('skills', 'skills'), ('AGENTS.md', '.'), ('docs', 'docs')],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},
