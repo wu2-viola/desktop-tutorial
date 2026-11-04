@@ -106,10 +106,19 @@ function runTask(task) {
   scrollDown();
 
   let current = null;                                // 当前正在流的 assistant 气泡
-  evtSource = new EventSource(`/api/run/stream?task=${encodeURIComponent(task)}`);
+  const q = `task=${encodeURIComponent(task)}` +
+            `&skills=${$("tg-skills").checked ? 1 : 0}` +
+            `&hooks=${$("tg-hooks").checked ? 1 : 0}`;
+  evtSource = new EventSource(`/api/run/stream?${q}`);
   evtSource.onmessage = (e) => {
     const ev = JSON.parse(e.data);
     if (ev.type === "__done__") { evtSource.close(); setRunning(false); typing.remove(); return; }
+    if (ev.type === "capabilities") {
+      $("caps-line").textContent =
+        `技能 ${ev.skills.length} 个${ev.skills.length ? "（" + ev.skills.join("/") + "）" : ""}` +
+        ` · 钩子 ${ev.hooks ? "on" : "off"} · AGENTS.md ${ev.agents_md.join("/") || "无"}`;
+      return;
+    }
     if (ev.type === "provider") {
       $("provider-badge").textContent = ev.name === "deepseek" ? "模型 · DeepSeek" : "模型 · 离线 mock";
       $("provider-badge").classList.toggle("warn", ev.name !== "deepseek");

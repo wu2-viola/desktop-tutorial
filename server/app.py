@@ -105,17 +105,23 @@ def _sse(events) -> StreamingResponse:
 
 
 @app.get("/api/run/stream")
-def run_stream(task: str = Query(...)):
+def run_stream(task: str = Query(...), skills: int = 1, hooks: int = 1):
     if STATE["busy"]:
         raise HTTPException(409, "已有任务在跑，先等它结束或点停止")
     STATE["busy"] = True
     interrupt = threading.Event()
     STATE["interrupt"] = interrupt
-    loop = AgentLoop(_make_provider(), _all_tools(), STATE["workspace"])
+    loop = AgentLoop(_make_provider(), _all_tools(), STATE["workspace"],
+                     enable_skills=bool(skills), enable_hooks=bool(hooks))
 
     def gen():
         try:
             yield f"data: {json.dumps({'type': 'provider', 'name': loop.provider.name}, ensure_ascii=False)}\n\n"
+            caps = {"type": "capabilities",
+                    "skills": [s.name for s in loop.skills],
+                    "hooks": loop.hooks is not None,
+                    "agents_md": loop.agents_md["layers"]}
+            yield f"data: {json.dumps(caps, ensure_ascii=False)}\n\n"
             for ev in loop.run(task, interrupt):
                 yield f"data: {json.dumps(ev.to_json(), ensure_ascii=False)}\n\n"
         finally:

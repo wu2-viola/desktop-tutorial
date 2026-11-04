@@ -44,10 +44,18 @@ def main() -> None:
         print(f"{DIM}[provider] {cfg['model']} @ {cfg['base_url']}{RESET}")
 
     loop = AgentLoop(provider, tools, workspace, max_steps=args.steps)
+    names = ", ".join(s.name for s in loop.skills) or "（已关闭）"
+    print(f"{DIM}[skills] {len(loop.skills)} 个：{names}{RESET}")
+    print(f"{DIM}[hooks] {'on' if loop.hooks else 'off'}"
+          f"  [reviewer] {'on' if loop.reviewer else 'off'}"
+          f"  [agents.md] {'/'.join(loop.agents_md['layers']) or '无'}{RESET}")
+
+    tool_calls = 0
     for ev in loop.run(args.task):
         if ev.type == "assistant_text":
             print(ev.data["delta"], end="", flush=True)
         elif ev.type == "tool_end":
+            tool_calls += 1
             color = GREEN if ev.data["ok"] else RED
             print(f"\n{color}[{ev.data['tool']}] {'ok' if ev.data['ok'] else '失败'}"
                   f" ({ev.data['elapsed_ms']}ms){RESET}")
@@ -56,8 +64,10 @@ def main() -> None:
             print(f"{DIM}[tokens] +{ev.data['prompt_tokens']}/{ev.data['completion_tokens']}{RESET}")
         elif ev.type == "final":
             print(f"\n=== 完成 ===\n{ev.data['text']}")
+            print(f"{DIM}[总计] 工具调用 {tool_calls} 次{RESET}")
         elif ev.type == "stopped":
             print(f"\n=== 停止 === {ev.data['reason']}")
+            print(f"{DIM}[总计] 工具调用 {tool_calls} 次{RESET}")
         elif ev.type == "error":
             print(f"\n{RED}=== 出错 === {ev.data['message']}{RESET}", file=sys.stderr)
             sys.exit(1)
