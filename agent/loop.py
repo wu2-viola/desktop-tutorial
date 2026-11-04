@@ -5,18 +5,28 @@
   2. token 预算（max_budget_tokens）
   3. 同一调用连续 3 次判定为兜圈子，直接叫停
 外加用户中断（Interrupted），四条出口全部以 stopped/error 事件收尾。
+v1.1 起：system prompt 里常驻技能目录，正文靠 use_skill 按需加载。
 """
 from __future__ import annotations
 
 import json
+import os
 import threading
 import time
 from pathlib import Path
 from typing import Iterator
 
 from .providers import SYSTEM_PROMPT, Provider
+from .skills import UseSkillTool, catalog_text, load_skills
 from .tools import Interrupted, Tool, ToolContext
 from .types import Event, Message, Observation, ToolCall
+
+REPO = Path(__file__).resolve().parent.parent
+
+
+def _flag(name: str, default: bool = True) -> bool:
+    """环境开关：ENABLE_SKILLS=0 关掉对应能力。"""
+    return os.environ.get(name, "1" if default else "0") not in ("0", "false", "False")
 
 
 class LoopDetected(Exception):
@@ -25,18 +35,33 @@ class LoopDetected(Exception):
 
 class AgentLoop:
     def __init__(self, provider: Provider, tools: dict[str, Tool], workspace: Path,
-                 max_steps: int = 12, max_budget_tokens: int = 1_000_000):
+                 max_steps: int = 12, max_budget_tokens: int = 1_000_000,
+                 enable_skills: bool | None = None,
+                 skills_dir: Path | None = None,
+                 system_prompt: str | None = None):
         self.provider = provider
-        self.tools = tools
         self.workspace = Path(workspace)
         self.max_steps = max_steps
         self.max_budget_tokens = max_budget_tokens
+        self.enable_skills = _flag("ENABLE_SKILLS") if enable_skills is None else enable_skills
+
+        self.skills = load_skills(skills_dir or (REPO / "skills")) if self.enable_skills else []
+        self.tools = dict(tools)
+        if self.enable_skills:
+            self.tools["use_skill"] = UseSkillTool(self.skills)
+        self.base_system_prompt = system_prompt or SYSTEM_PROMPT
+
+    def build_system_prompt(self) -> str:
+        parts = [self.base_system_prompt]
+        if self.enable_skills and self.skills:
+            parts.append(catalog_text(self.skills))
+        return "\n\n".join(parts)
 
     # ---- 对外入口：迭代消费事件流 ----
     def run(self, task: str, interrupt: threading.Event | None = None) -> Iterator[Event]:
         ctx = ToolContext(self.workspace, interrupt or threading.Event())
         messages: list[Message] = [
-            Message(role="system", content=SYSTEM_PROMPT),
+            Message(role="system", content=self.build_system_prompt()),
             Message(role="user", content=task),
         ]
         usage_total = 0
@@ -114,6 +139,7 @@ class AgentLoop:
             args = json.loads(call.arguments) if call.arguments.strip() else {}
             if not isinstance(args, dict):
                 raise ValueError("arguments 不是 JSON 对象")
+
             result = tool.run(args, ctx)
             elapsed = int((time.time() - started) * 1000)
             return Observation(call.id, call.name, bool(result.get("ok")),
