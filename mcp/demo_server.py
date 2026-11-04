@@ -29,7 +29,43 @@ TOOLS = [
             "required": ["text"],
         },
     },
+    {
+        "name": "issue_list",
+        "description": "列出当前项目的 issue（编号 / 标题 / 状态）。",
+        "inputSchema": {"type": "object", "properties": {}},
+    },
+    {
+        "name": "issue_get",
+        "description": "按编号读取 issue 详情：标题、正文、验收标准。",
+        "inputSchema": {
+            "type": "object",
+            "properties": {"id": {"type": "integer", "description": "issue 编号"}},
+            "required": ["id"],
+        },
+    },
 ]
+
+# 演示用的 issue 库（真实项目里这里换成 Jira / GitHub API 调用）
+ISSUES = {
+    12: {
+        "title": "mean() 对空列表静默返回 0，应该抛错",
+        "state": "open",
+        "body": "调用 mean([]) 时返回 0，下游把它当成合法均值。期望与 median([]) 一致抛 ValueError。",
+        "acceptance": "1) mean([]) 抛 ValueError；2) 现有 6 个用例全绿；3) 补一个空列表用例。",
+    },
+    13: {
+        "title": "统计模块缺少标准差 stddev",
+        "state": "open",
+        "body": "需要一个与 variance 配套的 stddev，供报表使用。",
+        "acceptance": "1) stddev([2,4,6]) ≈ 1.633；2) 空列表抛 ValueError；3) 补两个用例。",
+    },
+    14: {
+        "title": "测试输出太长，日志里看不出哪个用例失败",
+        "state": "closed",
+        "body": "CI 日志被 -v 的输出淹没。",
+        "acceptance": "默认 -q，失败时只打印失败用例。",
+    },
+}
 
 
 def tool_workspace_stats(_: dict) -> str:
@@ -61,11 +97,28 @@ def tool_note_add(args: dict) -> str:
     return f"已写入 {notes.name}（现 {len(notes.read_text(encoding='utf-8').splitlines())} 行）"
 
 
+def tool_issue_list(_: dict) -> str:
+    return "\n".join(f"#{i} [{v['state']}] {v['title']}" for i, v in sorted(ISSUES.items()))
+
+
+def tool_issue_get(args: dict) -> str:
+    iid = int(args.get("id", 0))
+    issue = ISSUES.get(iid)
+    if issue is None:
+        raise ValueError(f"没有 #{iid} 这个 issue")
+    return (f"#{iid} {issue['title']}\n状态：{issue['state']}\n\n"
+            f"正文：{issue['body']}\n\n验收标准：{issue['acceptance']}")
+
+
 def dispatch(name: str, args: dict) -> str:
     if name == "workspace_stats":
         return tool_workspace_stats(args)
     if name == "note_add":
         return tool_note_add(args)
+    if name == "issue_list":
+        return tool_issue_list(args)
+    if name == "issue_get":
+        return tool_issue_get(args)
     raise ValueError(f"未知工具：{name}")
 
 
