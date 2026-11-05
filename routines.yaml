@@ -1,0 +1,12 @@
+# 常驻任务的定时表：到点跑一个 skill
+# 两种写法二选一：every_seconds（间隔）或 at（每天某个时刻，本地时间）
+routines:
+  - name: watch-diff
+    every_seconds: 300
+    skill: review-diff
+    task: "审一下当前改动，只报问题"
+
+  - name: nightly-tests
+    at: "22:00"
+    skill: run-tests
+    task: "跑一遍测试，红了就总结三行"
