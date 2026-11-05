@@ -52,6 +52,18 @@ Desktop Agent 是一个基于 Python、pywebview 和 DeepSeek 模型接口开发
 发现其工具并以 `mcp__server__tool` 命名合并进注册表。仓库自带一个最小
 MCP server（`workspace_stats` / `note_add`）作为集成示例。
 
+### 2.7 常驻能力（选做增量 C）
+
+- **崩溃续跑**：每一步 turn 落盘 checkpoint（原子写），进程被 `kill -9` 后 `resume` 从断点继续，
+  已执行过的工具调用不会重放（`executed_calls` 幂等）
+- **定时触发**：`routines.yaml`（`every_seconds` / `at`），到点跑一个 skill
+- **事件触发**：轮询目录变化进队列（标准库实现，不引 watchdog）
+- **完成通知**：Windows toast + 日志双通道
+
+```bash
+python -m app.inspect daemon --out daemon_report.json
+```
+
 ## 3. 安全机制
 
 1. **工作区路径限制**：所有文件操作校验路径，拒绝越出工作区。
@@ -116,11 +128,30 @@ MCP 协议交互、配置层密钥不泄露及 server 接口行为。每次 push
 ```bash
 python -m app.inspect skills --out skill_report.json
 python -m app.inspect custom --out custom_report.json
+python -m app.inspect daemon --out daemon_report.json   # 选做
 ```
 
 - `skill_report.json`：技能清单、目录/全文 token、`disclosure_ratio`、8 条触发试验、误触发数
 - `custom_report.json`：AGENTS.md 层数与字节、被 hook 拒绝的尝试、自动测试红绿统计、
   reviewer 的问题数与上下文增量
+- `daemon_report.json`：定时/事件触发次数、`resume_from_step`（证明不是从第 1 步重来）、
+  `notify_fired`、`idempotent` 与 `replayed_tools`
+
+### 9.1 常驻演示：kill -9 之后从第 3 步继续
+
+```powershell
+# 终端 A：跑一个 5 步的长任务（--slow 只是留出 kill 的窗口）
+python -m agent.daemon run --task "修复 mean 对空列表的处理" --run-id demo --slow 0.8 --reset
+
+# 终端 B：等它报完 [step 3] 后直接杀（Windows 的 TerminateProcess，没有清理机会）
+Stop-Process -Id <python 的 pid> -Force
+
+# 终端 A：从断点续跑，输出里能看到 resume_from_step
+python -m agent.daemon resume --run-id demo
+```
+
+实测：杀在 `step=2`、已执行 1 个调用；续跑 `resume_from_step=3`，补完剩下 4 个调用，
+5 个调用一个没重放；第二次 `resume` 命中 `done` 直接跳过。
 
 ## 10. 能力开关
 
@@ -150,8 +181,10 @@ desktop-tutorial/
 ├── AGENTS.md           # 项目地图（注入 system prompt 的项目层）
 ├── report.md           # 报告：技能 / 定制 / 取舍
 ├── agent/              # 循环、四个工具、技能系统、hooks、子 agent、验收命令
+│   └── daemon/         # 常驻：checkpoint 续跑 / routines 定时 / watch 事件 / notify
 ├── app/                # 验收命令兼容入口（python -m app.inspect）
 ├── skills/             # 技能目录：run-tests / review-diff / fetch-issue
+├── routines.yaml       # 定时触发表（到点跑哪个 skill）
 ├── server/             # FastAPI 后端（SSE 事件流）
 ├── ui/                 # 三栏界面（含技能 / 钩子开关）
 ├── mcp/                # MCP 客户端与示例 server（含 issue 工具）
@@ -160,6 +193,7 @@ desktop-tutorial/
 ├── docs/               # 运行记录 / 打包说明 / 全局 AGENTS.md / 样例 diff
 ├── skill_report.json   # 技能验收报告（程序打印）
 ├── custom_report.json  # 定制层验收报告（程序打印）
+├── daemon_report.json  # 常驻验收报告（选做，程序打印）
 └── mcp.json            # MCP server 配置
 ```
 
@@ -168,9 +202,10 @@ desktop-tutorial/
 - **v1.0**：桌面窗口、四工具、MCP、安装包
 - **v1.1**：技能系统（渐进披露 + 三种形态 + 触发试验）
 - **v1.2**：定制层（AGENTS.md 两层、三个 hook、reviewer 子 agent、界面开关）
+- **v1.3**：常驻（checkpoint 续跑 + routines 定时 + 目录事件 + 通知，选做增量 C）
 
-未做：增量 C（daemon：定时 / 事件触发、崩溃续跑、完成通知）。下一步先做
-checkpoint/resume —— 每轮把 messages 落盘，重启用 `--resume` 续跑，这是「一直在线」的最小闭环。
+未做：多机分布式队列、系统托盘常驻、cron 全语法。当前 `routines.yaml` 只支持
+`every_seconds` 与每日 `at` 两种写法 —— 够覆盖「定时跑 skill」的需求，不值得为 cron 引依赖。
 
 ## 14. 课程项目说明
 

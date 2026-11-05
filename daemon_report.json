@@ -1,0 +1,55 @@
+{
+  "triggers_fired": 3,
+  "event_triggers_fired": 3,
+  "resume_from_step": 3,
+  "notify_fired": true,
+  "idempotent": true,
+  "killed_at_step": 2,
+  "killed_executed": 1,
+  "executed_calls": 5,
+  "replayed_tools": 0,
+  "resume_rounds": [
+    {
+      "round": 1,
+      "status": "done",
+      "step": 6,
+      "executed": 5
+    },
+    {
+      "round": 2,
+      "status": "done",
+      "step": 6,
+      "executed": 5
+    }
+  ],
+  "idempotent_evidence": "第二轮 resume 命中 done 直接跳过，工具执行数不变",
+  "notify_channels": [
+    "windows-toast",
+    "log"
+  ],
+  "routines": [
+    {
+      "name": "watch-diff",
+      "skill": "review-diff",
+      "action": "script",
+      "ok": true
+    },
+    {
+      "name": "watch-diff",
+      "skill": "review-diff",
+      "action": "script",
+      "ok": true
+    },
+    {
+      "name": "watch-diff",
+      "skill": "review-diff",
+      "action": "script",
+      "ok": true
+    }
+  ],
+  "event_queue_consumed": 3,
+  "kill_mode": "process",
+  "run_returncode": 1,
+  "kill_diag": "",
+  "duration_ms": 8210
+}

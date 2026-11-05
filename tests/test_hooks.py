@@ -1,18 +1,17 @@
 """Hooks 断言：软的是建议，硬的必须是代码 —— 拒绝要给替代方案，回注只给三行。"""
-import shutil
 from pathlib import Path
 
 import pytest
 
 from agent.hooks import HookEngine
+from agent.inspect import _seed_demo_workspace
 
 REPO = Path(__file__).resolve().parent.parent
 
 
 @pytest.fixture()
 def ws(tmp_path):
-    for f in ("stats.py", "test_stats.py"):
-        shutil.copy(REPO / "workspace" / f, tmp_path / f)
+    _seed_demo_workspace(tmp_path)       # 从 HEAD 取 bug 版，不依赖工作区当前状态
     return tmp_path
 
 
