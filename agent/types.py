@@ -30,6 +30,21 @@ class Message:
             d["tool_call_id"] = self.tool_call_id
         return d
 
+    def to_dict(self) -> dict:
+        """落盘用：字段与 to_openai 一致，但保留空 content，方便 resume 原样恢复。"""
+        d: dict[str, Any] = {"role": self.role, "content": self.content}
+        if self.tool_calls:
+            d["tool_calls"] = self.tool_calls
+        if self.tool_call_id is not None:
+            d["tool_call_id"] = self.tool_call_id
+        return d
+
+    @staticmethod
+    def from_dict(d: dict) -> "Message":
+        return Message(role=d["role"], content=d.get("content") or "",
+                       tool_calls=list(d.get("tool_calls") or []),
+                       tool_call_id=d.get("tool_call_id"))
+
 
 @dataclass
 class ToolCall:

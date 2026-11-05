@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import Iterator
 
 from .agents_md import load_agents_md, system_block
+from .daemon.checkpoint import capture
 from .hooks import HookEngine
 from .providers import SYSTEM_PROMPT, Provider
 from .skills import UseSkillTool, catalog_text, load_skills
@@ -77,26 +78,65 @@ class AgentLoop:
         return "\n\n".join(parts)
 
     # ---- 对外入口：迭代消费事件流 ----
-    def run(self, task: str, interrupt: threading.Event | None = None) -> Iterator[Event]:
-        ctx = ToolContext(self.workspace, interrupt or threading.Event())
-        messages: list[Message] = [
-            Message(role="system", content=self.build_system_prompt()),
-            Message(role="user", content=task),
-        ]
-        usage_total = 0
-        history: list[tuple[str, str]] = []      # (tool, args) 供兜圈子判定
+    def run(self, task: str, interrupt: threading.Event | None = None,
+            checkpoint=None) -> Iterator[Event]:
+        """checkpoint：RunState 协议对象（messages/step/executed_calls/history/save()）。
 
-        yield Event("step_begin", {"step": 1, "total_steps": self.max_steps})
-        for step in range(1, self.max_steps + 1):
-            if step > 1:
-                yield Event("step_begin", {"step": step, "total_steps": self.max_steps})
+        传了它，每完成一个工具调用就落盘；进程被 kill 后，daemon 拿着同一份
+        checkpoint 再调一次 run()，已执行过的调用 id 会被跳过，而不是重跑。
+        """
+        ctx = ToolContext(self.workspace, interrupt or threading.Event())
+        if checkpoint is None:
+            messages: list[Message] = [
+                Message(role="system", content=self.build_system_prompt()),
+                Message(role="user", content=task),
+            ]
+            usage_total = 0
+            history: list[tuple[str, str]] = []      # (tool, args) 供兜圈子判定
+            executed: set[str] = set()
+            skip_once: set[str] = set()
+            first_step = 1
+        else:                                        # 从断点恢复上下文，而不是重新开始
+            messages = [Message.from_dict(m) for m in checkpoint.messages]
+            usage_total = checkpoint.usage_total
+            history = [tuple(h) for h in checkpoint.history]
+            executed = set(checkpoint.executed_calls)
+            # 只跳过「上个进程执行过的」那一次；同进程内再次发起同一 id 仍算兜圈子
+            skip_once = set(checkpoint.executed_calls)
+            first_step = checkpoint.step + 1
+            self._restore_read_paths(messages, ctx)  # 「edit 前必须 read」也要续上
+
+        def persist(step: int, status: str = "running") -> None:
+            if checkpoint is None:
+                return
+            capture(checkpoint, messages, step, usage_total, executed, status)
+            checkpoint.save()
+
+        if checkpoint is not None:                   # 断点处可能「已决策、未执行完」
+            pending = self._pending_calls(messages, executed)
+            if pending:
+                yield Event("step_begin", {"step": checkpoint.step,
+                                           "total_steps": self.max_steps, "resumed": True})
+                try:
+                    for ev in self._run_calls(pending, messages, ctx, history,
+                                              executed, checkpoint.step, persist, skip_once):
+                        yield ev
+                except LoopDetected:
+                    persist(checkpoint.step, "stopped")
+                    yield Event("stopped", {"reason": "同一调用连续 3 次判定为兜圈子，直接叫停"})
+                    return
+
+        for step in range(first_step, self.max_steps + 1):
+            yield Event("step_begin", {"step": step, "total_steps": self.max_steps})
             try:
                 events = list(self.provider.stream_chat(messages,
                                                         [t.spec() for t in self.tools.values()]))
             except Interrupted:
+                persist(step, "stopped")
                 yield Event("stopped", {"reason": "用户中断"})
                 return
             except Exception as e:               # 网络 / Key / 配额 —— 都在这层变成人话
+                persist(step, "failed")
                 yield Event("error", {"message": f"模型调用失败：{e}"})
                 return
 
@@ -110,33 +150,77 @@ class AgentLoop:
                 else:
                     yield ev
             if assistant is None:
+                persist(step, "failed")
                 yield Event("error", {"message": "模型没有返回任何内容"})
                 return
             messages.append(assistant)
+            persist(step)                            # 决策落盘：重启后知道走到第几步
 
-            if not assistant.tool_calls:         # 模型认为做完了
+            if not assistant.tool_calls:             # 模型认为做完了
+                persist(step, "done")
                 yield Event("final", {"text": assistant.content, "usage_total": usage_total})
                 return
 
-            for tc in assistant.tool_calls:
-                call = ToolCall.from_openai(tc)
-                try:
-                    obs = self._execute(call, ctx, history)
-                except LoopDetected:
-                    yield Event("stopped", {"reason": "同一调用连续 3 次判定为兜圈子，直接叫停"})
-                    return
-                yield Event("tool_end", {
-                    "call_id": obs.call_id, "tool": obs.tool, "ok": obs.ok,
-                    "output": obs.output, "error": obs.error,
-                    "elapsed_ms": obs.elapsed_ms, "blocks": obs.blocks,
-                })
-                messages.append(obs.to_tool_message())
+            try:
+                for ev in self._run_calls(assistant.tool_calls, messages, ctx, history,
+                                          executed, step, persist, skip_once):
+                    yield ev
+            except LoopDetected:
+                persist(step, "stopped")
+                yield Event("stopped", {"reason": "同一调用连续 3 次判定为兜圈子，直接叫停"})
+                return
 
             if usage_total > self.max_budget_tokens:
+                persist(step, "stopped")
                 yield Event("stopped", {"reason": f"token 预算耗尽（{usage_total}）"})
                 return
 
+        persist(self.max_steps, "stopped")
         yield Event("stopped", {"reason": f"步数上限（{self.max_steps} 步）已到，先停给你看"})
+
+    # ---- 工具调用的执行与落盘（主循环和断点补跑共用这一段） ----
+    @staticmethod
+    def _pending_calls(messages: list[Message], executed: set[str]) -> list[dict]:
+        """最后一条 assistant 里「已决策但没执行完」的调用。"""
+        last = next((m for m in reversed(messages) if m.role == "assistant"), None)
+        if last is None:
+            return []
+        return [tc for tc in (last.tool_calls or [])
+                if (tc.get("id") or "") not in executed]
+
+    def _run_calls(self, calls: list[dict], messages: list[Message], ctx: ToolContext,
+                   history: list[tuple[str, str]], executed: set[str], step: int,
+                   persist, skip_once: set[str] | None = None) -> Iterator[Event]:
+        for tc in calls:
+            call = ToolCall.from_openai(tc)
+            if skip_once and call.id in skip_once:
+                skip_once.discard(call.id)       # 上个进程执行过的那一次：结果已在 messages 里
+                continue
+            obs = self._execute(call, ctx, history)      # LoopDetected 由调用方接
+            messages.append(obs.to_tool_message())
+            executed.add(call.id)
+            persist(step)                        # 每个工具结果落盘一次
+            yield Event("tool_end", {
+                "call_id": obs.call_id, "tool": obs.tool, "ok": obs.ok,
+                "output": obs.output, "error": obs.error,
+                "elapsed_ms": obs.elapsed_ms, "blocks": obs.blocks,
+            })
+
+    @staticmethod
+    def _restore_read_paths(messages: list[Message], ctx: ToolContext) -> None:
+        """从历史里恢复「read 过哪些文件」，否则续跑后第一次 edit 会被护栏拒绝。"""
+        answered = {m.tool_call_id for m in messages if m.role == "tool"}
+        for m in messages:
+            for tc in (m.tool_calls or []):
+                fn = tc.get("function", {})
+                if fn.get("name") != "read" or tc.get("id") not in answered:
+                    continue
+                try:
+                    path = json.loads(fn.get("arguments") or "{}").get("path")
+                    if path:
+                        ctx.read_paths.add(str(ctx.resolve_in_workspace(path)))
+                except Exception:
+                    continue
 
     # ---- 执行单个工具调用 ----
     def _execute(self, call: ToolCall, ctx: ToolContext,
