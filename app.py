@@ -79,13 +79,29 @@ def _free_port() -> int:
         return s.getsockname()[1]
 
 
+def _ensure_streams() -> None:
+    """--windowed 打包后 sys.stdout/stderr 是 None。
+
+    uvicorn 的 DefaultFormatter 会调 sys.stderr.isatty()，拿到 None 直接
+    AttributeError 崩溃 —— 窗口还没出来就变成一个 "Unhandled exception" 对话框。
+    这里接一个空流兜底，打包/源码运行行为一致。
+    """
+    import os
+    for name in ("stdout", "stderr"):
+        if getattr(sys, name) is None:
+            setattr(sys, name, open(os.devnull, "w", encoding="utf-8", errors="replace"))
+
+
 def main() -> None:
+    _ensure_streams()
     import uvicorn
     from server.app import app as fastapi_app, init
 
     init(_prepare_workspace(), ROOT / "mcp.json")
     port = _free_port()
-    config = uvicorn.Config(fastapi_app, host="127.0.0.1", port=port, log_level="warning")
+    # log_config=None：不跑 logging.dictConfig，少一个「无控制台就崩」的入口
+    config = uvicorn.Config(fastapi_app, host="127.0.0.1", port=port,
+                            log_level="warning", log_config=None)
     server = uvicorn.Server(config)
     threading.Thread(target=server.run, daemon=True).start()
 
@@ -104,5 +120,19 @@ def main() -> None:
     webview.start()
 
 
+def _run() -> None:
+    """崩了也要留下证据：打包后没有控制台，堆栈只进对话框，复制不出来。"""
+    import traceback
+    try:
+        main()
+    except Exception:
+        log = Path.home() / ".desktop-tutorial" / "crash.log"
+        log.parent.mkdir(parents=True, exist_ok=True)
+        text = traceback.format_exc()
+        log.write_text(text, encoding="utf-8")
+        sys.stderr.write(text)
+        raise
+
+
 if __name__ == "__main__":
-    main()
+    _run()
