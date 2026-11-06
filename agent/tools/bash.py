@@ -5,13 +5,39 @@
 """
 from __future__ import annotations
 
+import os
 import subprocess
 import tempfile
 import time
+from pathlib import Path
 
+from ..gitutil import find_git
 from .base import guard, Tool, ToolContext
 
 MAX_CHARS = 8000
+
+
+def _child_env() -> dict:
+    """打包后的 exe 继承的 PATH 里常常没有 git，模型跑 `git diff` 就 255。
+
+    探测到 git 就把它的目录注入子进程 PATH —— 模型不需要知道机器装没装、装在哪。
+    """
+    env = dict(os.environ)
+    git = find_git()
+    if git:
+        env["PATH"] = str(Path(git).parent) + os.pathsep + env.get("PATH", "")
+    return env
+
+
+def _decode(data: bytes) -> str:
+    """cmd 的中文报错是 GBK，git / pytest 的输出多半是 UTF-8。
+
+    先按 UTF-8 严格解，失败就退 GBK —— 不再给模型和界面看一串 ◆。
+    """
+    try:
+        return data.decode("utf-8")
+    except UnicodeDecodeError:
+        return data.decode("gbk", errors="replace")
 
 
 def _kill_tree(proc: subprocess.Popen) -> None:
@@ -50,7 +76,8 @@ class BashTool(Tool):
         with tempfile.TemporaryFile(mode="w+b") as out_f, tempfile.TemporaryFile(mode="w+b") as err_f:
             started = time.time()
             proc = subprocess.Popen(command, shell=True, cwd=str(ctx.workspace),
-                                    stdout=out_f, stderr=err_f, stdin=subprocess.DEVNULL)
+                                    stdout=out_f, stderr=err_f, stdin=subprocess.DEVNULL,
+                                    env=_child_env())
             killed_reason = None
             while True:
                 code = proc.poll()
@@ -70,7 +97,7 @@ class BashTool(Tool):
 
             def _drain(f) -> str:
                 f.seek(0)
-                data = f.read().decode("utf-8", errors="replace")
+                data = _decode(f.read())
                 if len(data) > MAX_CHARS:
                     data = data[:MAX_CHARS] + f"\n……（输出过长，已截断，原始 {len(data)} 字符）"
                 return data
