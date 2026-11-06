@@ -24,7 +24,7 @@ pyinstaller --noconfirm --clean --onedir --windowed --name DesktopAgent ^
 `--onefile` 每次双击都要先把 74MB 解到 `%TEMP%\_MEIxxxxxx`，杀软再逐个扫一遍，
 界面上表现为「双击没反应」——它其实在解包，25 秒后才出窗口。演示请用 `--onedir`。
 
-## 三个坑
+## 五个坑
 
 ### 坑 1：打包后找不到 ui/
 
@@ -56,10 +56,28 @@ pyinstaller --noconfirm --clean --onedir --windowed --name DesktopAgent ^
 `Path.home()/.desktop-tutorial/workspace`（见 `app.py:_prepare_workspace`）。
 规则：资源读 `sys._MEIPASS`，写入一律 `Path.home()`。
 
+### 坑 4：onedir 的启动器 exe 单独拿出来就是空壳
+
+`dist/DesktopAgent/DesktopAgent.exe` 只有 15MB——它只是引导器，
+90% 的内容在旁边的 `_internal/` 里。发 Release 时把它单独拖上去，
+下载的人双击就是「装完打不开」，比 onefile 崩溃更隐蔽：文件本身是个合法 PE，能复制能改名。
+
+教训（11-06 真实发生）：替换 Release 资产时误传了 15MB 的启动器，
+核对方式是 **API 返回的字节数 vs 本地文件字节数**（`GET /releases` 的 `assets[].size`），
+大小对不上立刻就能发现，不用下载回来。
+
+### 坑 5：验证过的只是「进程活着」，不是「窗口出来了」
+
+`Start-Process; Start-Sleep 10; alive=$true` 验证不了任何东西——
+崩溃对话框也是活进程。打包验证必须查 `MainWindowHandle != 0` 且标题正确，
+并且崩溃时去读 `~/.desktop-tutorial/crash.log`，而不是数进程数。
+（坑 2 就是这么漏过去的：exe 进程活着，弹的却是错误框。）
+
 ## 验证
 
 打包后必做三件事：
 
-1. 双击 exe，出窗口（不是控制台一闪而过）
+1. 双击 exe，**窗口出现且标题正确**（不是进程活着就算过——见坑 5）
 2. `DesktopAgent.exe --mcp-server` 管道下能应答 `tools/list`（MCP 在包里也是活的）
 3. 跑一次离线任务，read → edit → bash 三张卡片都出现
+4. 发 Release 后核对 `assets[].size` 与本地字节数（见坑 4）
