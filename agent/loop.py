@@ -196,6 +196,10 @@ class AgentLoop:
             if skip_once and call.id in skip_once:
                 skip_once.discard(call.id)       # 上个进程执行过的那一次：结果已在 messages 里
                 continue
+            yield Event("tool_begin", {          # 先报「跑起来了」，trace 栏不用干等
+                "call_id": call.id, "tool": call.name,
+                "args": (call.arguments or "")[:160],
+            })
             obs = self._execute(call, ctx, history)      # LoopDetected 由调用方接
             messages.append(obs.to_tool_message())
             executed.add(call.id)

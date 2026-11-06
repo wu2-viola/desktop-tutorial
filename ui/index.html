@@ -19,29 +19,59 @@
     </div>
   </aside>
 
-  <!-- 中：代码查看 -->
-  <main id="middle">
-    <div class="col-head" id="file-title">未打开文件</div>
-    <pre id="file-view" class="file-view">从左侧选择一个文件</pre>
-  </main>
-
-  <!-- 右：对话与工具调用 -->
-  <section id="right">
-    <div class="col-head">对话 · 工具调用
-      <button id="btn-settings" class="ghost-btn" title="设置 API Key">⚙ 设置</button>
+  <!-- 中：对话（结论在这里） -->
+  <main id="chat">
+    <div id="chat-top">
+      <div class="brand">
+        <span class="brand-name">◆ Desktop Agent</span>
+        <span class="brand-sub" id="brand-sub">桌面智能体训练营</span>
+      </div>
+      <div class="chat-top-right">
+        <span id="model-badge" class="badge" title="当前模型">模型 · …</span>
+        <span id="run-badge" class="badge hidden">● 运行中</span>
+        <button id="btn-new" class="ghost-btn" title="清空对话，开始新会话">＋ 新建会话</button>
+        <button id="btn-settings" class="ghost-btn" title="设置 API Key">⚙ 设置</button>
+      </div>
     </div>
     <div id="stream"></div>
     <div id="toggles">
       <label><input type="checkbox" id="tg-skills" checked> 技能</label>
       <label><input type="checkbox" id="tg-hooks" checked> 钩子</label>
+      <span id="activity"></span>
       <span id="caps-line"></span>
     </div>
     <div id="composer">
-      <input id="task-input" type="text" placeholder="说点什么…（例如：mean 对空列表处理有问题，改掉）" autocomplete="off">
-      <button id="btn-send">发送</button>
-      <button id="btn-stop" class="danger" disabled>■ 停止</button>
+      <textarea id="task-input" rows="2"
+        placeholder="让智能体做点什么…（Enter 发送，Shift+Enter 换行）"
+        autocomplete="off"></textarea>
+      <div id="composer-foot">
+        <span id="ws-hint">工作目录：workspace/</span>
+        <div class="composer-btns">
+          <button id="btn-stop" class="danger" disabled>■ 停止</button>
+          <button id="btn-send">发送</button>
+        </div>
+      </div>
     </div>
-  </section>
+  </main>
+
+  <!-- 右：工具调用 trace（成功 / 失败在这里） -->
+  <aside id="trace">
+    <div class="col-head">工具调用 trace
+      <button id="btn-clear-trace" class="ghost-btn">清空</button>
+    </div>
+    <div id="trace-list"></div>
+  </aside>
+</div>
+
+<!-- 文件查看弹窗 -->
+<div id="file-modal" class="modal hidden">
+  <div class="modal-card file-card">
+    <div class="modal-head">
+      <span id="file-title">文件</span>
+      <button id="file-close" class="ghost-btn">✕ 关闭</button>
+    </div>
+    <pre id="file-view" class="file-view"></pre>
+  </div>
 </div>
 
 <!-- 设置弹窗 -->
