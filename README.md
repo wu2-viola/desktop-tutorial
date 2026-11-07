@@ -14,6 +14,8 @@ Desktop Agent 是一个基于 Python、pywebview 和 DeepSeek 模型接口开发
 
 图 2 是一次真实运行：中间是对话与结论（markdown 渲染、输入框常驻），右侧 trace 栏逐条显示每个工具调用的成功/失败与耗时；`docs/screenshots/demo.mp4` 是三任务的完整演示录屏（修复 bug → 跑测试并总结 → 审查改动，真模型一镜到底）。
 
+增量作业另有六段演示录屏 `docs/screenshots/demo_增量.mp4`：三技能三形态、渐进披露开关对比、hook 拦截、红灯回注（red_to_green）、reviewer 上下文隔离、kill -9 续跑——全部由 `cli.py` / `python -m app.inspect` 真实输出逐段生成。
+
 ## 2. 主要功能
 
 ### 2.1 桌面交互界面
