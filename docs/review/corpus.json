@@ -1,0 +1,95 @@
+{
+  "note": "12 个待审 PR：8 个埋了已知 bug（共 10 处），4 个是干净的。bugs 里的 line 是新文件行号（diff 新增行），作为召回率的唯一真值来源。",
+  "prs": [
+    {
+      "id": "pr01",
+      "title": "新增 stats_extra：mean 的容错版本",
+      "diff": "--- /dev/null\n+++ b/agent/stats_extra.py\n@@ -0,0 +1,7 @@\n+\"\"\"统计小工具。\"\"\"\n+\n+\n+def mean_safe(nums, acc=[]):\n+    total = sum(nums)\n+    acc.append(total)\n+    return total / len(nums)\n",
+      "bugs": [
+        {"file": "agent/stats_extra.py", "line": 4, "kind": "mutable-default", "desc": "acc=[] 可变默认参数，多次调用共享同一个 list"},
+        {"file": "agent/stats_extra.py", "line": 7, "kind": "division-by-zero", "desc": "空列表时 len(nums)==0 → ZeroDivisionError"}
+      ]
+    },
+    {
+      "id": "pr02",
+      "title": "新增 logio：按行读日志",
+      "diff": "--- /dev/null\n+++ b/agent/logio.py\n@@ -0,0 +1,6 @@\n+\"\"\"读日志。\"\"\"\n+\n+def read_lines(path):\n+    f = open(path, encoding=\"utf-8\")\n+    lines = f.readlines()\n+    return [ln.rstrip(\"\\n\") for ln in lines]\n",
+      "bugs": [
+        {"file": "agent/logio.py", "line": 4, "kind": "open-no-with", "desc": "open 没配 with，异常路径下句柄泄漏"}
+      ]
+    },
+    {
+      "id": "pr03",
+      "title": "新增 query：按用户名查库",
+      "diff": "--- /dev/null\n+++ b/agent/query.py\n@@ -0,0 +1,6 @@\n+\"\"\"查库。\"\"\"\n+\n+\n+def find_user(conn, name):\n+    sql = f\"SELECT * FROM users WHERE name = '{name}'\"\n+    return conn.execute(sql).fetchall()\n",
+      "bugs": [
+        {"file": "agent/query.py", "line": 5, "kind": "sql-injection", "desc": "f-string 拼 SQL，用户名直接进语句"}
+      ]
+    },
+    {
+      "id": "pr04",
+      "title": "新增 retry：失败重试一次",
+      "diff": "--- /dev/null\n+++ b/agent/retry.py\n@@ -0,0 +1,8 @@\n+\"\"\"重试。\"\"\"\n+\n+\n+def once(fn, *args):\n+    try:\n+        return fn(*args)\n+    except:\n+        return None\n",
+      "bugs": [
+        {"file": "agent/retry.py", "line": 7, "kind": "bare-except", "desc": "裸 except 连 KeyboardInterrupt 一起吞"}
+      ]
+    },
+    {
+      "id": "pr05",
+      "title": "新增 scan：相邻两元素求和取最大",
+      "diff": "--- /dev/null\n+++ b/agent/scan.py\n@@ -0,0 +1,8 @@\n+\"\"\"扫描相邻对。\"\"\"\n+\n+\n+def adjacent_max(items):\n+    best = 0\n+    for i in range(len(items)):\n+        best = max(best, items[i] + items[i + 1])\n+    return best\n",
+      "bugs": [
+        {"file": "agent/scan.py", "line": 7, "kind": "off-by-one", "desc": "i 取到 len-1 时 items[i+1] 越界"}
+      ]
+    },
+    {
+      "id": "pr06",
+      "title": "新增 cmp：判空",
+      "diff": "--- /dev/null\n+++ b/agent/cmp.py\n@@ -0,0 +1,6 @@\n+\"\"\"比较。\"\"\"\n+\n+def is_missing(v):\n+    if v == None:\n+        return True\n+    return False\n",
+      "bugs": [
+        {"file": "agent/cmp.py", "line": 4, "kind": "eq-none", "desc": "== None 对自定义 __eq__ 会失灵"}
+      ]
+    },
+    {
+      "id": "pr07",
+      "title": "新增 safe_div：带判空的除法与均值",
+      "diff": "--- /dev/null\n+++ b/agent/safe_div.py\n@@ -0,0 +1,13 @@\n+\"\"\"安全除法。\"\"\"\n+\n+\n+def ratio(a, b):\n+    if b == 0:\n+        raise ValueError(\"b must be non-zero\")\n+    return a / b\n+\n+\n+def mean(nums):\n+    if not nums:\n+        raise ValueError(\"mean of empty sequence\")\n+    return sum(nums) / len(nums)\n",
+      "bugs": []
+    },
+    {
+      "id": "pr08",
+      "title": "新增 config_io：读 JSON 配置",
+      "diff": "--- /dev/null\n+++ b/agent/config_io.py\n@@ -0,0 +1,8 @@\n+\"\"\"读配置。\"\"\"\n+\n+import json\n+\n+\n+def load(path):\n+    with open(path, encoding=\"utf-8\") as f:\n+        return json.load(f)\n",
+      "bugs": []
+    },
+    {
+      "id": "pr09",
+      "title": "新增 parse_num：失败返回 0",
+      "diff": "--- /dev/null\n+++ b/agent/parse_num.py\n@@ -0,0 +1,9 @@\n+\"\"\"解析。\"\"\"\n+\n+\n+def parse_int(text):\n+    try:\n+        return int(text)\n+    except Exception:\n+        pass\n+    return 0\n",
+      "bugs": [
+        {"file": "agent/parse_num.py", "line": 7, "kind": "swallowed-error", "desc": "except 里 pass，解析失败被静默吞掉"}
+      ]
+    },
+    {
+      "id": "pr10",
+      "title": "新增说明：review 规则清单",
+      "diff": "--- /dev/null\n+++ b/agent/review_notes.py\n@@ -0,0 +1,8 @@\n+\"\"\"文档。\"\"\"\n+\n+# 注意：不要写 x == None，也不要在函数里 open 后不关；\n+# 这两条由 review 子命令的 eq-none / open-no-with 规则兜住。\n+\n+\n+def describe():\n+    return \"review 规则见 docs/review\"\n",
+      "bugs": []
+    },
+    {
+      "id": "pr11",
+      "title": "新增 export：把行写到文件",
+      "diff": "--- /dev/null\n+++ b/agent/export.py\n@@ -0,0 +1,9 @@\n+\"\"\"导出。\"\"\"\n+\n+\n+def export(path, rows):\n+    out = open(path, \"w\", encoding=\"utf-8\")\n+    for row in rows:\n+        if row == None:\n+            continue\n+        out.write(str(row) + \"\\n\")\n",
+      "bugs": [
+        {"file": "agent/export.py", "line": 5, "kind": "open-no-with", "desc": "open 没配 with，异常时文件不关也不 flush"},
+        {"file": "agent/export.py", "line": 7, "kind": "eq-none", "desc": "== None 判空"}
+      ]
+    },
+    {
+      "id": "pr12",
+      "title": "新增测试：token_estimate 冒烟",
+      "diff": "--- /dev/null\n+++ b/tests/test_token_estimate.py\n@@ -0,0 +1,7 @@\n+\"\"\"测试。\"\"\"\n+\n+from agent.metrics import token_estimate\n+\n+\n+def test_token_estimate():\n+    assert token_estimate(\"hello world\") > 0\n",
+      "bugs": []
+    }
+  ]
+}

@@ -14,7 +14,7 @@ from pathlib import Path
 from ..loop import AgentLoop
 from ..skills import load_skills
 from ..tools import BUILTIN_TOOLS
-from .checkpoint import DONE, RUNNING, RunState, default_state_dir
+from .checkpoint import DONE, RunState, default_state_dir
 from .notify import notify
 from .routines import Routine, Scheduler, load_routines
 from .scripted import ScriptedLongProvider

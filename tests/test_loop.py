@@ -1,6 +1,5 @@
 """循环护栏断言：让它停比让它动难 —— 步数 / 预算 / 兜圈子 / 中断。"""
 import json as _json
-import threading
 
 import pytest
 

@@ -1,7 +1,10 @@
 """验收命令入口：所有报告里的数字由这里打印，不接受手写。
 
-    python -m agent.inspect skills --out skill_report.json
-    python -m agent.inspect custom --out custom_report.json
+    python -m agent.inspect skills    --out skill_report.json
+    python -m agent.inspect custom    --out custom_report.json
+    python -m agent.inspect readiness --out readiness_report.json   # 增量 D
+    python -m agent.inspect parallel  --out parallel_report.json    # 增量 E
+    python -m agent.inspect review    --out review_report.json      # 增量 F
 兼容入口（作业文档里的写法）：python -m app.inspect ...
 """
 from __future__ import annotations
@@ -309,7 +312,10 @@ def main() -> None:
     parser = argparse.ArgumentParser(prog="app.inspect", description="作业验收：程序打印数字")
     sub = parser.add_subparsers(dest="cmd", required=True)
     for name, help_text in (("skills", "技能系统报告"), ("custom", "定制层报告"),
-                            ("daemon", "常驻能力报告（选做）")):
+                            ("daemon", "常驻能力报告（选做）"),
+                            ("readiness", "增量 D：九根柱子体检、定级"),
+                            ("parallel", "增量 E：worktree 双工位并行与合流"),
+                            ("review", "增量 F：评审已知 bug 的 PR 算召回")):
         p = sub.add_parser(name, help=help_text)
         p.add_argument("--out", required=True, help="输出 JSON 路径")
     args = parser.parse_args()
@@ -319,6 +325,19 @@ def main() -> None:
         cmd_custom(args.out)
     elif args.cmd == "daemon":
         cmd_daemon(args.out)
+    elif args.cmd == "readiness":
+        from agent.readiness import scan, write_report
+        write_report(scan(REPO), args.out)
+    elif args.cmd == "parallel":
+        from agent.parallel import run_parallel, write_report
+        write_report(run_parallel(REPO), args.out)
+    elif args.cmd == "review":
+        from agent.review import evaluate
+        import json as _json
+        report = evaluate()
+        Path(args.out).write_text(_json.dumps(report, ensure_ascii=False, indent=2) + "\n",
+                                  encoding="utf-8")
+        print(report["summary_comment"])
 
 
 if __name__ == "__main__":

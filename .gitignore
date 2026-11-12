@@ -1,6 +1,8 @@
 # 密钥与本地配置 —— 绝不入库
 .env
 *.key
+*.pem
+*.p12
 
 # 打包产物
 dist/
@@ -15,6 +17,9 @@ __pycache__/
 
 # 演示工作区的运行时产物
 workspace/notes.md
+
+# 增量 E 的临时工位（worktree 演示，跑完即删）
+.parallel/
 
 # 构建日志与调试 spec（只留正式 spec）
 build*.log

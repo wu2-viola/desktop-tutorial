@@ -1,0 +1,346 @@
+{
+  "generated_at": "2026-11-12 17:34:31",
+  "corpus": "C:\\Users\\lx\\CodeBuddy\\20261112163754\\repo\\docs\\review\\corpus.json",
+  "reviewer": {
+    "type": "rule-based",
+    "rules": [
+      "mutable-default",
+      "bare-except",
+      "swallowed-error",
+      "eq-none",
+      "open-no-with",
+      "division-by-zero",
+      "off-by-one",
+      "sql-injection"
+    ],
+    "line_tolerance": 2,
+    "note": "规则型：每条意见可追到 diff 行号与规则名，可复现、不花 token"
+  },
+  "prs": [
+    {
+      "id": "pr01",
+      "title": "新增 stats_extra：mean 的容错版本",
+      "clean": false,
+      "comments": [
+        {
+          "pr": "pr01",
+          "file": "agent/stats_extra.py",
+          "line": 4,
+          "kind": "mutable-default",
+          "message": "可变默认参数（list/dict/set）会在调用间共享，改成 None 再在函数里初始化",
+          "quote": "def mean_safe(nums, acc=[]):"
+        },
+        {
+          "pr": "pr01",
+          "file": "agent/stats_extra.py",
+          "line": 7,
+          "kind": "division-by-zero",
+          "message": "除数是 len()，空输入会 ZeroDivisionError：先判空再除",
+          "quote": "return total / len(nums)"
+        }
+      ],
+      "bugs": [
+        {
+          "file": "agent/stats_extra.py",
+          "line": 4,
+          "kind": "mutable-default",
+          "desc": "acc=[] 可变默认参数，多次调用共享同一个 list",
+          "hit": true,
+          "hit_by": "mutable-default",
+          "hit_line": 4
+        },
+        {
+          "file": "agent/stats_extra.py",
+          "line": 7,
+          "kind": "division-by-zero",
+          "desc": "空列表时 len(nums)==0 → ZeroDivisionError",
+          "hit": true,
+          "hit_by": "division-by-zero",
+          "hit_line": 7
+        }
+      ],
+      "false_positives": [],
+      "bug_count": 2,
+      "hit_count": 2
+    },
+    {
+      "id": "pr02",
+      "title": "新增 logio：按行读日志",
+      "clean": false,
+      "comments": [
+        {
+          "pr": "pr02",
+          "file": "agent/logio.py",
+          "line": 4,
+          "kind": "open-no-with",
+          "message": "open 没有配 with：异常路径下句柄不会关，改成 `with open(...) as f`",
+          "quote": "f = open(path, encoding=\"utf-8\")"
+        }
+      ],
+      "bugs": [
+        {
+          "file": "agent/logio.py",
+          "line": 4,
+          "kind": "open-no-with",
+          "desc": "open 没配 with，异常路径下句柄泄漏",
+          "hit": true,
+          "hit_by": "open-no-with",
+          "hit_line": 4
+        }
+      ],
+      "false_positives": [],
+      "bug_count": 1,
+      "hit_count": 1
+    },
+    {
+      "id": "pr03",
+      "title": "新增 query：按用户名查库",
+      "clean": false,
+      "comments": [
+        {
+          "pr": "pr03",
+          "file": "agent/query.py",
+          "line": 5,
+          "kind": "sql-injection",
+          "message": "f-string 拼 SQL，参数没走占位符：改成参数化查询",
+          "quote": "sql = f\"SELECT * FROM users WHERE name = '{name}'\""
+        }
+      ],
+      "bugs": [
+        {
+          "file": "agent/query.py",
+          "line": 5,
+          "kind": "sql-injection",
+          "desc": "f-string 拼 SQL，用户名直接进语句",
+          "hit": true,
+          "hit_by": "sql-injection",
+          "hit_line": 5
+        }
+      ],
+      "false_positives": [],
+      "bug_count": 1,
+      "hit_count": 1
+    },
+    {
+      "id": "pr04",
+      "title": "新增 retry：失败重试一次",
+      "clean": false,
+      "comments": [
+        {
+          "pr": "pr04",
+          "file": "agent/retry.py",
+          "line": 7,
+          "kind": "bare-except",
+          "message": "裸 except 会连 KeyboardInterrupt 一起吞掉，写明确的异常类型",
+          "quote": "except:"
+        }
+      ],
+      "bugs": [
+        {
+          "file": "agent/retry.py",
+          "line": 7,
+          "kind": "bare-except",
+          "desc": "裸 except 连 KeyboardInterrupt 一起吞",
+          "hit": true,
+          "hit_by": "bare-except",
+          "hit_line": 7
+        }
+      ],
+      "false_positives": [],
+      "bug_count": 1,
+      "hit_count": 1
+    },
+    {
+      "id": "pr05",
+      "title": "新增 scan：相邻两元素求和取最大",
+      "clean": false,
+      "comments": [
+        {
+          "pr": "pr05",
+          "file": "agent/scan.py",
+          "line": 7,
+          "kind": "off-by-one",
+          "message": "range(len(x)) 里取 [i + 1]，最后一个下标越界：range(len(x) - 1) 或 zip(x, x[1:])",
+          "quote": "best = max(best, items[i] + items[i + 1])"
+        }
+      ],
+      "bugs": [
+        {
+          "file": "agent/scan.py",
+          "line": 7,
+          "kind": "off-by-one",
+          "desc": "i 取到 len-1 时 items[i+1] 越界",
+          "hit": true,
+          "hit_by": "off-by-one",
+          "hit_line": 7
+        }
+      ],
+      "false_positives": [],
+      "bug_count": 1,
+      "hit_count": 1
+    },
+    {
+      "id": "pr06",
+      "title": "新增 cmp：判空",
+      "clean": false,
+      "comments": [
+        {
+          "pr": "pr06",
+          "file": "agent/cmp.py",
+          "line": 4,
+          "kind": "eq-none",
+          "message": "判断空值用 `is None` / `is not None`，`== None` 对自定义 __eq__ 会失灵",
+          "quote": "if v == None:"
+        }
+      ],
+      "bugs": [
+        {
+          "file": "agent/cmp.py",
+          "line": 4,
+          "kind": "eq-none",
+          "desc": "== None 对自定义 __eq__ 会失灵",
+          "hit": true,
+          "hit_by": "eq-none",
+          "hit_line": 4
+        }
+      ],
+      "false_positives": [],
+      "bug_count": 1,
+      "hit_count": 1
+    },
+    {
+      "id": "pr07",
+      "title": "新增 safe_div：带判空的除法与均值",
+      "clean": true,
+      "comments": [],
+      "bugs": [],
+      "false_positives": [],
+      "bug_count": 0,
+      "hit_count": 0
+    },
+    {
+      "id": "pr08",
+      "title": "新增 config_io：读 JSON 配置",
+      "clean": true,
+      "comments": [],
+      "bugs": [],
+      "false_positives": [],
+      "bug_count": 0,
+      "hit_count": 0
+    },
+    {
+      "id": "pr09",
+      "title": "新增 parse_num：失败返回 0",
+      "clean": false,
+      "comments": [
+        {
+          "pr": "pr09",
+          "file": "agent/parse_num.py",
+          "line": 7,
+          "kind": "swallowed-error",
+          "message": "except 里直接 pass，错误被吞：至少记日志或返回明确的失败结果",
+          "quote": "except Exception:"
+        }
+      ],
+      "bugs": [
+        {
+          "file": "agent/parse_num.py",
+          "line": 7,
+          "kind": "swallowed-error",
+          "desc": "except 里 pass，解析失败被静默吞掉",
+          "hit": true,
+          "hit_by": "swallowed-error",
+          "hit_line": 7
+        }
+      ],
+      "false_positives": [],
+      "bug_count": 1,
+      "hit_count": 1
+    },
+    {
+      "id": "pr10",
+      "title": "新增说明：review 规则清单",
+      "clean": true,
+      "comments": [],
+      "bugs": [],
+      "false_positives": [],
+      "bug_count": 0,
+      "hit_count": 0
+    },
+    {
+      "id": "pr11",
+      "title": "新增 export：把行写到文件",
+      "clean": false,
+      "comments": [
+        {
+          "pr": "pr11",
+          "file": "agent/export.py",
+          "line": 5,
+          "kind": "open-no-with",
+          "message": "open 没有配 with：异常路径下句柄不会关，改成 `with open(...) as f`",
+          "quote": "out = open(path, \"w\", encoding=\"utf-8\")"
+        },
+        {
+          "pr": "pr11",
+          "file": "agent/export.py",
+          "line": 7,
+          "kind": "eq-none",
+          "message": "判断空值用 `is None` / `is not None`，`== None` 对自定义 __eq__ 会失灵",
+          "quote": "if row == None:"
+        }
+      ],
+      "bugs": [
+        {
+          "file": "agent/export.py",
+          "line": 5,
+          "kind": "open-no-with",
+          "desc": "open 没配 with，异常时文件不关也不 flush",
+          "hit": true,
+          "hit_by": "open-no-with",
+          "hit_line": 5
+        },
+        {
+          "file": "agent/export.py",
+          "line": 7,
+          "kind": "eq-none",
+          "desc": "== None 判空",
+          "hit": true,
+          "hit_by": "open-no-with",
+          "hit_line": 5
+        }
+      ],
+      "false_positives": [],
+      "bug_count": 2,
+      "hit_count": 2
+    },
+    {
+      "id": "pr12",
+      "title": "新增测试：token_estimate 冒烟",
+      "clean": true,
+      "comments": [],
+      "bugs": [],
+      "false_positives": [],
+      "bug_count": 0,
+      "hit_count": 0
+    }
+  ],
+  "totals": {
+    "prs": 12,
+    "clean_prs": 4,
+    "bugs": 10,
+    "hits": 10,
+    "recall": 1.0,
+    "comments": 10,
+    "false_positives": 0,
+    "precision": 1.0
+  },
+  "verdict": {
+    "pass": true,
+    "checks": {
+      "召回 ≥ 60%": true,
+      "误报 ≤ 3 条": true
+    }
+  },
+  "duration_ms": 4,
+  "summary_comment": "### review 汇总：10 个已知 bug 命中 10，召回 100%；误报 0 条\n\n- 语料：12 个 PR（10 个 bug 埋在 8 个 PR 里，4 个干净），共出 10 条意见，精确率 100%\n- 漏掉：无\n- 误报：无\n- 结论：及格线（召回 ≥ 60%、误报 ≤ 3）通过\n- 局限：规则型评审只认模式，认不出语义 bug（比如「逻辑对但业务错」）——这类得靠人，或者把模型接进来当第二层。\n"
+}

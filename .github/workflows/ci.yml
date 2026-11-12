@@ -12,6 +12,10 @@ jobs:
       - name: 安装依赖
         run: |
           pip install -r requirements.txt -r requirements-dev.txt
-      - name: 跑断言
+      - name: 样式与校验（硬闸 1）
+        run: |
+          python -m ruff check .
+
+      - name: 跑断言（硬闸 2）
         run: |
           python -m pytest tests -q

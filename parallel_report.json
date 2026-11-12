@@ -1,0 +1,117 @@
+{
+  "generated_at": "2026-11-12 17:33:08",
+  "root": "C:\\Users\\lx\\CodeBuddy\\20261112163754\\repo",
+  "base_commit": "55e8116",
+  "base_branch": "main",
+  "git_version": "git version 2.56.0.windows.4",
+  "strategy": "git worktree：一个目录一个分支、一份 index，两条线同时跑，跑完再合",
+  "lanes": [
+    {
+      "lane": "task-a",
+      "branch": "parallel/task-a",
+      "worktree": ".parallel/task-a",
+      "task": "新增 agent/slugify.py（标题转 slug）并配测试",
+      "files": [
+        "agent/slugify.py",
+        "tests/test_slugify.py",
+        "CHANGELOG.md"
+      ],
+      "commit": "1773807",
+      "commit_subject": "feat(parallel-a): 新增 slugify",
+      "elapsed_ms": 81707,
+      "wall_ms": 82027,
+      "pytest": {
+        "exit_code": 0,
+        "passed": 98,
+        "failed": 0,
+        "failed_tests": [],
+        "elapsed_ms": 81703,
+        "tail": "98 passed in 79.89s (0:01:19)"
+      }
+    },
+    {
+      "lane": "task-b",
+      "branch": "parallel/task-b",
+      "worktree": ".parallel/task-b",
+      "task": "新增 agent/chunk.py（按固定大小切分序列）并配测试",
+      "files": [
+        "agent/chunk.py",
+        "tests/test_chunk.py",
+        "CHANGELOG.md"
+      ],
+      "commit": "4c78e29",
+      "commit_subject": "feat(parallel-b): 新增 chunk",
+      "elapsed_ms": 68908,
+      "wall_ms": 81372,
+      "pytest": {
+        "exit_code": 0,
+        "passed": 98,
+        "failed": 0,
+        "failed_tests": [],
+        "elapsed_ms": 68905,
+        "tail": "98 passed in 65.57s (0:01:05)"
+      }
+    }
+  ],
+  "parallelism": {
+    "lanes": 2,
+    "sum_worker_ms": 150615,
+    "wall_ms": 83829,
+    "speedup": 1.8
+  },
+  "merge": {
+    "target": "parallel/integration（临时分支，合完即删，主分支不动）",
+    "merges": [
+      {
+        "branch": "parallel/task-a",
+        "result": "clean",
+        "exit_code": 0,
+        "output": [
+          "Merge made by the 'ort' strategy.",
+          " CHANGELOG.md          |  5 +++++",
+          " agent/slugify.py      | 10 ++++++++++",
+          " tests/test_slugify.py | 13 +++++++++++++"
+        ]
+      },
+      {
+        "branch": "parallel/task-b",
+        "result": "conflict",
+        "exit_code": 1,
+        "output": [
+          "Auto-merging CHANGELOG.md",
+          "CONFLICT (add/add): Merge conflict in CHANGELOG.md",
+          "Automatic merge failed; fix conflicts and then commit the result."
+        ]
+      }
+    ],
+    "conflict_files": [
+      "CHANGELOG.md"
+    ],
+    "conflict_reason": "两个分支从同一个 base 各自新建了 CHANGELOG.md，同一路径同一位置两条新增 → git 判定 add/add 冲突",
+    "resolution": "两边都新建了 CHANGELOG.md（add/add），两条记录互不依赖 → 都保留，按 a→b 排序",
+    "merge_commit": "5953112",
+    "post_merge_pytest": {
+      "exit_code": 0,
+      "passed": 101,
+      "failed_tests": [],
+      "elapsed_ms": 72296,
+      "tail": "101 passed in 69.54s (0:01:09)",
+      "attempts": 1,
+      "note": ""
+    }
+  },
+  "cleanup": {
+    "worktrees_removed": true,
+    "branches_deleted": true,
+    "note": "分支与工作树用完即删，所以本报告可以反复跑；sha 可直接 git cat-file 复查"
+  },
+  "verdict": {
+    "pass": true,
+    "checks": {
+      "两个 worktree 都跑通测试": true,
+      "冲突文件写清楚": true,
+      "合并后整体测试通过": true
+    }
+  },
+  "duration_ms": 163595
+}

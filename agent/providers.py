@@ -8,7 +8,7 @@ from __future__ import annotations
 import json
 from typing import Iterator
 
-from .types import Event, Message, ToolCall, Usage
+from .types import Event, Message, Usage
 
 SYSTEM_PROMPT = (
     "你是一个工作区编码智能体。你只能通过工具读写文件、执行命令，"

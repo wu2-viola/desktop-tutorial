@@ -1,0 +1,186 @@
+{
+  "generated_at": "2026-11-12 17:39:17",
+  "root": "C:\\Users\\lx\\CodeBuddy\\20261112163754\\repo",
+  "pillars": [
+    {
+      "id": "style",
+      "name": "样式与校验",
+      "question": "这写得合规吗？",
+      "score": 100,
+      "evidence": [
+        "+40 校验配置：pyproject/[tool.ruff] 等存在",
+        "+40 真跑一遍语法校验（compileall，55 个 .py）：全过",
+        "+20 CI 里强制跑样式检查"
+      ]
+    },
+    {
+      "id": "build",
+      "name": "构建系统",
+      "question": "编得过吗？",
+      "score": 100,
+      "evidence": [
+        "+40 有 [build-system]/setup.py：有",
+        "+30 入口/打包配置：['app.py', 'cli.py', 'DesktopAgent.spec']",
+        "+30 包能整体编译通过"
+      ]
+    },
+    {
+      "id": "tests",
+      "name": "测试",
+      "question": "跑得对吗？",
+      "score": 100,
+      "evidence": [
+        "+40 测试文件 13 个（≥10 个满分）",
+        "+40 一条命令跑测试：exit=0、110 passed、71450ms",
+        "+20 CI 每次 push 都跑测试（强制执行）"
+      ]
+    },
+    {
+      "id": "docs",
+      "name": "文档",
+      "question": "我们这儿是怎么做的？",
+      "score": 100,
+      "evidence": [
+        "+40 README 9212 字节",
+        "+30 docs/ 下 12 份材料",
+        "+30 AGENTS.md（地图给模型，也给新人）"
+      ]
+    },
+    {
+      "id": "devenv",
+      "name": "开发环境",
+      "question": "我能复现吗？",
+      "score": 100,
+      "evidence": [
+        "+40 requirements(+dev) 存在",
+        "+30 Python 版本被钉住",
+        "+30 .env.example 给了配置样板"
+      ]
+    },
+    {
+      "id": "observability",
+      "name": "可观测性",
+      "question": "刚才到底发生了什么？",
+      "score": 60,
+      "evidence": [
+        "+0 代码里 0 处结构化日志调用",
+        "+30 程序产出的报告 6 份：['custom_report.json', 'daemon_report.json', 'parallel_report.json', 'readiness_report.json', 'review_report.json', 'skill_report.json']",
+        "+30 有独立的指标/计数模块"
+      ]
+    },
+    {
+      "id": "security",
+      "name": "安全",
+      "question": "能上线吗？",
+      "score": 100,
+      "evidence": [
+        "+40 .gitignore 覆盖 ['.env', '*.key', '*.pem']（要 .env/*.key/*.pem 三样）",
+        "+40 代码层真拦住了写 .env（hook 实测）",
+        "+20 源码里没有硬编码密钥（tests/ 里的假 key 是夹具，不算）"
+      ]
+    },
+    {
+      "id": "discovery",
+      "name": "任务发现",
+      "question": "下一步该干什么？",
+      "score": 100,
+      "evidence": [
+        "+40 AGENTS.md 写清了路径→职责、命令→怎么跑",
+        "+30 待办/常规任务落在仓库里",
+        "+30 README 有可直接抄的验收命令清单"
+      ]
+    },
+    {
+      "id": "product",
+      "name": "产品与实验",
+      "question": "这有用吗？",
+      "score": 100,
+      "evidence": [
+        "+40 report.md 7151 字节（带取舍与数字）",
+        "+30 实测证据 7 份 JSON",
+        "+30 演示素材 5 个（截图/录屏）"
+      ]
+    }
+  ],
+  "scores": {
+    "style": 100,
+    "build": 100,
+    "tests": 100,
+    "docs": 100,
+    "devenv": 100,
+    "observability": 60,
+    "security": 100,
+    "discovery": 100,
+    "product": 100
+  },
+  "total": 96,
+  "level": "L3",
+  "level_reason": [
+    "总分≥75",
+    "一条命令跑测试为真",
+    "CI 强制跑测试",
+    "CI 强制跑样式/构建检查"
+  ],
+  "levels": [
+    {
+      "level": "L5",
+      "meaning": "不用管：派活、验收、合并全程不需要人"
+    },
+    {
+      "level": "L4",
+      "meaning": "优化过：反馈够快，撑得住长时间独跑（后台的门槛）"
+    },
+    {
+      "level": "L3",
+      "meaning": "标准化：检查是自动的，而且被强制执行"
+    },
+    {
+      "level": "L2",
+      "meaning": "写下来了：能带新人跑通，命令抄下来就能用"
+    },
+    {
+      "level": "L1",
+      "meaning": "能跑：代码能跑起来，检查靠人手动点"
+    }
+  ],
+  "one_command_test": {
+    "command": "python -m pytest tests -q",
+    "ok": true,
+    "exit_code": 0,
+    "passed": 110,
+    "failed": 0,
+    "errors": 0,
+    "elapsed_ms": 71450,
+    "tail": "110 passed in 68.82s (0:01:08)"
+  },
+  "top_gaps": [
+    {
+      "pillar": "可观测性",
+      "id": "observability",
+      "score": 60,
+      "advice": "把工具调用的 step/tokens/耗时落到结构化日志，出问题能倒查"
+    },
+    {
+      "pillar": "构建系统",
+      "id": "build",
+      "score": 100,
+      "advice": "在 pyproject.toml 补 [build-system]，并让 CI 跑一次可执行文件打包脚本"
+    },
+    {
+      "pillar": "开发环境",
+      "id": "devenv",
+      "score": 100,
+      "advice": "补 .python-version 与 .env.example，让新人 clone 完命令抄下来就能跑"
+    }
+  ],
+  "flags": {
+    "tests_ok": true,
+    "ci_test": true,
+    "ci_style": true,
+    "fast": true,
+    "long_run": true,
+    "o11y": false,
+    "autonomy": false
+  },
+  "duration_ms": 72290
+}

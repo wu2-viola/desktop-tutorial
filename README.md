@@ -139,6 +139,9 @@ MCP 协议交互、配置层密钥不泄露及 server 接口行为。每次 push
 python -m app.inspect skills --out skill_report.json
 python -m app.inspect custom --out custom_report.json
 python -m app.inspect daemon --out daemon_report.json   # 选做
+python -m app.inspect readiness --out readiness_report.json   # 增量 D
+python -m app.inspect parallel  --out parallel_report.json    # 增量 E
+python -m app.inspect review    --out review_report.json      # 增量 F
 ```
 
 - `skill_report.json`：技能清单、目录/全文 token、`disclosure_ratio`、8 条触发试验、误触发数
@@ -146,6 +149,9 @@ python -m app.inspect daemon --out daemon_report.json   # 选做
   reviewer 的问题数与上下文增量
 - `daemon_report.json`：定时/事件触发次数、`resume_from_step`（证明不是从第 1 步重来）、
   `notify_fired`、`idempotent` 与 `replayed_tools`
+- `readiness_report.json`：九根柱子逐项得分与证据、总分、等级、最该补的三条
+- `parallel_report.json`：两个 worktree 分支、各自耗时、冲突文件与解决方式、合并后测试
+- `review_report.json`：逐条 bug 是否命中、误报数、召回率、一条汇总评论
 
 ### 9.1 常驻演示：kill -9 之后从第 3 步继续
 
@@ -191,7 +197,11 @@ desktop-tutorial/
 ├── AGENTS.md           # 项目地图（注入 system prompt 的项目层）
 ├── report.md           # 报告：技能 / 定制 / 取舍
 ├── agent/              # 循环、四个工具、技能系统、hooks、子 agent、验收命令
-│   └── daemon/         # 常驻：checkpoint 续跑 / routines 定时 / watch 事件 / notify
+│   ├── daemon/         # 常驻：checkpoint 续跑 / routines 定时 / watch 事件 / notify
+│   ├── readiness.py    # 增量 D：九根柱子体检、定级（scan/decide_level）
+│   ├── parallel.py     # 增量 E：worktree 双工位编排 + 合流
+│   ├── parallel_lane.py# 增量 E：工位里干活并自测的脚本
+│   └── review.py       # 增量 F：review 子命令、规则评审、召回考核
 ├── app/                # 验收命令兼容入口（python -m app.inspect）
 ├── skills/             # 技能目录：run-tests / review-diff / fetch-issue
 ├── routines.yaml       # 定时触发表（到点跑哪个 skill）
@@ -204,6 +214,10 @@ desktop-tutorial/
 ├── skill_report.json   # 技能验收报告（程序打印）
 ├── custom_report.json  # 定制层验收报告（程序打印）
 ├── daemon_report.json  # 常驻验收报告（选做，程序打印）
+├── readiness_report.json  # 增量 D：九根柱子体检（程序打印）
+├── parallel_report.json   # 增量 E：双工位并行与合流（程序打印）
+├── review_report.json     # 增量 F：评审召回/误报考核（程序打印）
+├── docs/review/           # 增量 F：PR 语料 + 汇总评论
 └── mcp.json            # MCP server 配置
 ```
 
@@ -213,6 +227,8 @@ desktop-tutorial/
 - **v1.1**：技能系统（渐进披露 + 三种形态 + 触发试验）
 - **v1.2**：定制层（AGENTS.md 两层、三个 hook、reviewer 子 agent、界面开关）
 - **v1.3**：常驻（checkpoint 续跑 + routines 定时 + 目录事件 + 通知，选做增量 C）
+- **v1.4**：可验证（readiness 体检、CI 双闸 ruff+pytest、`[build-system]`，增量 D）
+- **v1.5**：并行（worktree 双工位，增量 E）与评审（review 子命令 + 真值语料，增量 F）
 
 未做：多机分布式队列、系统托盘常驻、cron 全语法。当前 `routines.yaml` 只支持
 `every_seconds` 与每日 `at` 两种写法 —— 够覆盖「定时跑 skill」的需求，不值得为 cron 引依赖。
@@ -221,3 +237,80 @@ desktop-tutorial/
 
 本项目用于展示桌面智能体的基础架构设计、模型接口接入、本地工具封装、
 MCP 协议集成、工具调用安全控制和自动化测试等内容。
+
+## 15. 第三单元增量：验得动 / 派得出 / 审得住（D / E / F）
+
+三件都是跑得起来的实现，不是要求清单：三份 JSON 在仓库根目录，每个数字都能用一条命令重跑（见 §9）。
+**仍是同一个仓库，没有推倒重来。**
+
+### 15.1 增量 D（20 分）：给它一个可验证的仓库
+
+```bash
+python -m app.inspect readiness --out readiness_report.json
+```
+
+`agent/readiness.py`：
+
+- **九根柱子各一到三项可复现的检查**：先看有没有配置，再真跑一遍，最后看 CI 有没有强制。
+  样式与校验（`ruff check`）、构建（`[build-system]` + 整体编译）、测试（真跑 pytest）、文档、
+  开发环境、可观测性、安全（真调 hook 拦 `.env` 写入）、任务发现、产品与实验。
+- **分数不是估的**：每根柱子的加分项逐条写进 `pillars[].evidence`，例如
+  `+40 一条命令跑测试：exit=0、110 passed、51s`。
+- **定级看闸，不看平均分**（`decide_level`）：L3 = 总分 ≥ 75 + 一条命令跑测试为真 + CI 强制 lint +
+  CI 强制测试；L4 再加「测试 < 120s」与「可观测性 ≥ 75」；闸不过就停在下一级 —— 跳级是最常见的自欺。
+- **`top_gaps` 固定三条**：分数最低的三根柱子 + 具体怎么补。
+
+体检的正确用法是「测 → 补 → 再测」。第一次 **76 分 / L1**，短板集中在样式 40、构建/测试/安全 60；
+补完再测到 **96 分 / L3**（见 §15.4）。**没补的是可观测性**（结构化日志仍是 0 处）——
+报告里它会一直出现在 `top_gaps` 里，不装作有。
+
+### 15.2 增量 E（15 分）：开两个工位跑一次
+
+```bash
+python -m app.inspect parallel --out parallel_report.json
+```
+
+`agent/parallel.py` 真做的事：
+
+1. `git worktree add -B parallel/task-a .parallel/task-a HEAD`（B 同理）—— 两个目录、两份 index
+2. 两个工人 `Popen` **同时**起（不是串行假装并行），各改一件互不相干的事：
+   A 加 `agent/slugify.py`、B 加 `agent/chunk.py`，各自带测试；两边都新建了 `CHANGELOG.md`
+3. 每个工位先自己跑 `pytest tests -q`，绿了才提交
+4. 合流到临时分支 `parallel/integration`：A 干净，B 在 `CHANGELOG.md` 上撞车 ——
+   add/add 冲突：同一路径、同一位置、两边都是「新建」，git 没有可自动合并的基准
+5. 解决冲突（两条记录互不依赖，按 a→b 都保留）后再跑一遍全量测试
+6. 删 worktree、删分支：**主分支不动**，所以这个演示可以反复跑，不会把演示垃圾留进仓库
+
+### 15.3 增量 F（25 分）：让它审自己
+
+```bash
+python -m app.inspect review --out review_report.json   # 等价：python cli.py review
+```
+
+- 语料 `docs/review/corpus.json`：12 个待审 PR，其中 8 个埋了 10 处已知 bug，4 个干净（用来量误报）
+- `agent/review.py` 8 条规则：可变默认参数、裸 `except`、吞异常、`== None`、`open` 没配 `with`、
+  除零、`[i + 1]` 越界、f-string 拼 SQL；每条意见给到 `文件:行号 + 为什么`
+- 判定口径：文件一致且行号在 ±2 内算命中；**召回 = 命中 / 已知 bug 数**，
+  **误报 = 落在真值之外的评论数**（含干净 PR 上的任何评论）
+- 「一条汇总评论」落盘到 `docs/review/summary_comment.md`，可直接粘到 PR 上
+
+### 15.4 实测（数字全部来自上面三条命令的输出）
+
+| 交付 | 关键数字 | 及格线 | 结果 |
+|---|---|---|---|
+| `readiness_report.json` | **96 分 / L3**；一条命令跑测试 exit=0、**110 passed / 71.5s**；九项里八项满分，可观测性 60 | 等级 ≥ L3 且一条命令跑测试为真 | ✅ |
+| `parallel_report.json` | A 81.7s、B 68.9s，两条线同时跑墙钟 **83.8s（1.8×）**；冲突文件 `CHANGELOG.md`（add/add）；合并后 **101 passed** | 两个 worktree 都跑通测试、冲突原因写清 | ✅ |
+| `review_report.json` | 12 个 PR / **10 个已知 bug 命中 10**（召回 100%）；10 条意见里**误报 0**（精确率 100%） | 召回 ≥ 60%、误报 ≤ 3 | ✅ |
+
+### 15.5 总分构成（100 分 + 10 分加分）
+
+| 项 | 增量 | 分值 |
+|---|---|---|
+| A 技能 | 渐进披露 / 三形态 / 触发试验 | 35 → **20** |
+| B 定制 | AGENTS.md / hook / reviewer | 30 → **15** |
+| D 可验证 | readiness 体检 | **20** |
+| E 并行 | worktree 双工位 | **15** |
+| F 评审 | review 子命令 + 召回率 | **25** |
+| C 常驻 | checkpoint 续跑（选做） | +10（加分，不变） |
+
+旧的没有作废，只是让位给了新的三件；三份 JSON 正好对应三讲：验得动、派得出、审得住。

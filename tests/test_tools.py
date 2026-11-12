@@ -1,6 +1,4 @@
 """四个工具的语义断言 —— 每一条都对应一个真实会踩的坑。"""
-import subprocess
-import sys
 
 import pytest
 
@@ -154,7 +152,6 @@ def test_bash_runs_in_workspace(ctx, tmp_path):
 
 
 def test_interrupt(ctx):
-    import threading
 
     from agent.tools.base import Interrupted
 

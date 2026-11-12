@@ -1,7 +1,6 @@
 """AGENTS.md 注入：两层、按「全局 → 项目」拼、体积有上限。"""
 from pathlib import Path
 
-import pytest
 
 from agent.agents_md import find_project_agents_md, load_agents_md, system_block
 

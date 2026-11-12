@@ -2,6 +2,7 @@
 
     python cli.py "修复 workspace 里 mean 对空列表的处理"           # 有 Key 走 DeepSeek
     python cli.py --offline "修复 mean 对空列表的处理"              # 断网走离线 mock
+    python cli.py review --out review_report.json                  # 增量 F：审一批已知有 bug 的 PR
 """
 from __future__ import annotations
 
@@ -21,6 +22,11 @@ GREEN, RED, DIM, RESET = "\033[92m", "\033[91m", "\033[2m", "\033[0m"
 
 
 def main() -> None:
+    if len(sys.argv) > 1 and sys.argv[1] == "review":
+        from agent.review import main as review_main
+        review_main(sys.argv[2:])
+        return
+
     parser = argparse.ArgumentParser(description="桌面智能体的无界面入口")
     parser.add_argument("task", help="给智能体的任务")
     parser.add_argument("--workspace", default=str(Path(__file__).parent / "workspace"))
